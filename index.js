@@ -30,6 +30,20 @@ const getCsvFiles = (dir) => {
     return results;
 };
 
+// Extract date from folder name like vpa-dev-pvpa-20260908
+const extractDateFromDir = (dirPath) => {
+    if (!fs.existsSync(dirPath)) return 'Unknown';
+    const subdirs = fs.readdirSync(dirPath);
+    for (const subdir of subdirs) {
+        const match = subdir.match(/vpa-dev-pvpa-(\d{8})/);
+        if (match) return match[1];
+    }
+    return 'Unknown';
+};
+
+const oldDate = extractDateFromDir(oldDir);
+const newDate = extractDateFromDir(newDir);
+
 const oldFilesMap = getCsvFiles(oldDir);
 const newFilesMap = getCsvFiles(newDir);
 const allFiles = Array.from(new Set([...Object.keys(oldFilesMap), ...Object.keys(newFilesMap)])).sort();
@@ -72,6 +86,8 @@ allFiles.forEach(file => {
     const newSet = new Set(newRows.map(r => JSON.stringify(r)));
 
     const diffs = [];
+    let tableAdded = 0;
+    let tableRemoved = 0;
 
     // Find removed (in old, not in new)
     oldRows.forEach(r => {
@@ -79,6 +95,7 @@ allFiles.forEach(file => {
         if (!newSet.has(str)) {
             diffs.push({ type: 'removed', data: r });
             totalRemoved++;
+            tableRemoved++;
         }
     });
 
@@ -88,6 +105,7 @@ allFiles.forEach(file => {
         if (!oldSet.has(str)) {
             diffs.push({ type: 'added', data: r });
             totalAdded++;
+            tableAdded++;
         }
     });
 
@@ -108,7 +126,9 @@ allFiles.forEach(file => {
         reports.push({
             filename: file,
             headers: headers,
-            diffs: diffs
+            diffs: diffs,
+            addedCount: tableAdded,
+            removedCount: tableRemoved
         });
     }
 });
@@ -119,6 +139,8 @@ const html = ejs.render(templateStr, {
     totalAdded,
     totalRemoved,
     totalChangedTables,
+    oldDate,
+    newDate,
     date: new Date().toLocaleString()
 });
 
