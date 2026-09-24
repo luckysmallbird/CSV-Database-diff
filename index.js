@@ -12,15 +12,27 @@ if (!oldDir || !newDir) {
     process.exit(1);
 }
 
-// Get all CSV files
+// Recursively get all CSV files and map their basename to their full path
 const getCsvFiles = (dir) => {
-    if (!fs.existsSync(dir)) return [];
-    return fs.readdirSync(dir).filter(f => f.endsWith('.csv'));
+    let results = {};
+    if (!fs.existsSync(dir)) return results;
+    const list = fs.readdirSync(dir);
+    list.forEach(file => {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat && stat.isDirectory()) {
+            const subResults = getCsvFiles(filePath);
+            results = { ...results, ...subResults };
+        } else if (file.endsWith('.csv')) {
+            results[file] = filePath;
+        }
+    });
+    return results;
 };
 
-const oldFiles = new Set(getCsvFiles(oldDir));
-const newFiles = new Set(getCsvFiles(newDir));
-const allFiles = Array.from(new Set([...oldFiles, ...newFiles])).sort();
+const oldFilesMap = getCsvFiles(oldDir);
+const newFilesMap = getCsvFiles(newDir);
+const allFiles = Array.from(new Set([...Object.keys(oldFilesMap), ...Object.keys(newFilesMap)])).sort();
 
 const reports = [];
 let totalAdded = 0;
@@ -28,15 +40,15 @@ let totalRemoved = 0;
 let totalChangedTables = 0;
 
 allFiles.forEach(file => {
-    const oldPath = path.join(oldDir, file);
-    const newPath = path.join(newDir, file);
+    const oldPath = oldFilesMap[file];
+    const newPath = newFilesMap[file];
     
     let oldRows = [];
     let newRows = [];
     let headers = [];
 
     // Parse Old CSV
-    if (fs.existsSync(oldPath)) {
+    if (oldPath && fs.existsSync(oldPath)) {
         const content = fs.readFileSync(oldPath, 'utf8');
         const parsed = parse(content, { skip_empty_lines: true });
         if (parsed.length > 0) {
@@ -46,7 +58,7 @@ allFiles.forEach(file => {
     }
 
     // Parse New CSV
-    if (fs.existsSync(newPath)) {
+    if (newPath && fs.existsSync(newPath)) {
         const content = fs.readFileSync(newPath, 'utf8');
         const parsed = parse(content, { skip_empty_lines: true });
         if (parsed.length > 0) {
