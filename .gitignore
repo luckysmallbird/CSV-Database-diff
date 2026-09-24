@@ -12,5 +12,7 @@ report.html
 
 # Data Folders (Ignore CSV files and temp database folders to prevent committing large data)
 *.csv
-old_db/
-new_db/
+old_db/*
+!old_db/.gitkeep
+new_db/*
+!new_db/.gitkeep
