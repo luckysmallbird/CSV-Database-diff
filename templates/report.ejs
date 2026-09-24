@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Diff Report</title>
+    <style>
+        body {
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #202124;
+            margin: 0;
+            padding: 20px 40px;
+        }
+        h1 {
+            font-weight: 400;
+            color: #1a73e8;
+        }
+        .summary {
+            background: #fff;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            margin-bottom: 30px;
+        }
+        .summary span {
+            margin-right: 20px;
+            font-size: 16px;
+        }
+        .badge-added { color: #137333; font-weight: bold; }
+        .badge-removed { color: #c5221f; font-weight: bold; }
+        
+        .toc {
+            margin-bottom: 30px;
+        }
+        .toc a {
+            display: inline-block;
+            background: #e8f0fe;
+            color: #1a73e8;
+            padding: 8px 16px;
+            border-radius: 16px;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+            font-size: 14px;
+        }
+        .toc a:hover {
+            background: #d2e3fc;
+        }
+
+        .table-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            margin-bottom: 40px;
+            overflow: hidden;
+        }
+        .table-header {
+            background: #f1f3f4;
+            padding: 15px 25px;
+            border-bottom: 1px solid #dadce0;
+        }
+        .table-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #dadce0;
+            white-space: nowrap;
+        }
+        th {
+            background: #fff;
+            color: #5f6368;
+            font-weight: bold;
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            position: sticky;
+            top: 0;
+        }
+        .row-added {
+            background-color: #e6f4ea;
+        }
+        .row-removed {
+            background-color: #fce8e6;
+            text-decoration: line-through;
+            color: #c5221f;
+        }
+        .type-icon {
+            font-weight: bold;
+            text-align: center;
+        }
+        .row-added .type-icon { color: #137333; }
+        .row-removed .type-icon { color: #c5221f; }
+    </style>
+</head>
+<body>
+
+    <h1>📊 Database Migration Diff Report</h1>
+    
+    <div class="summary">
+        <p><strong>Generated on:</strong> <%= date %></p>
+        <p>
+            <span><strong>Changed Tables:</strong> <%= totalChangedTables %></span>
+            <span class="badge-added">➕ Added Rows: <%= totalAdded %></span>
+            <span class="badge-removed">➖ Removed Rows: <%= totalRemoved %></span>
+        </p>
+    </div>
+
+    <% if (reports.length > 0) { %>
+        <div class="toc">
+            <strong>Jump to:</strong><br>
+            <% reports.forEach(function(report) { %>
+                <a href="#table-<%= report.filename %>"><%= report.filename %> (<%= report.diffs.length %>)</a>
+            <% }); %>
+        </div>
+
+        <% reports.forEach(function(report) { %>
+            <div class="table-card" id="table-<%= report.filename %>">
+                <div class="table-header">
+                    <h2>📁 <%= report.filename %></h2>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="40">+/-</th>
+                                <% report.headers.forEach(function(header) { %>
+                                    <th><%= header %></th>
+                                <% }); %>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% report.diffs.forEach(function(diff) { %>
+                                <tr class="<%= diff.type === 'added' ? 'row-added' : 'row-removed' %>">
+                                    <td class="type-icon"><%= diff.type === 'added' ? '+' : '-' %></td>
+                                    <% diff.data.forEach(function(cell) { %>
+                                        <td><%= cell %></td>
+                                    <% }); %>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <% }); %>
+    <% } else { %>
+        <div class="summary">
+            <h3>No differences found between the two directories.</h3>
+        </div>
+    <% } %>
+
+</body>
+</html>

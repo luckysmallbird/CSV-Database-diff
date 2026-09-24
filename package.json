@@ -1,0 +1,13 @@
+{
+  "name": "csv-database-diff",
+  "version": "1.0.0",
+  "description": "Generate HTML report from two folders of CSVs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.0",
+    "ejs": "^3.1.9"
+  }
+}

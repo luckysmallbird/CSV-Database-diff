@@ -1,0 +1,16 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Mac OS
+.DS_Store
+
+# Output Reports
+*.html
+report.html
+
+# Data Folders (Ignore CSV files and temp database folders to prevent committing large data)
+*.csv
+old_db/
+new_db/
