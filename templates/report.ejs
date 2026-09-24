@@ -27,8 +27,22 @@
             margin-right: 20px;
             font-size: 16px;
         }
-        .badge-added { color: #137333; font-weight: bold; }
-        .badge-removed { color: #c5221f; font-weight: bold; }
+        .badge-added { 
+            background-color: #e6f4ea; 
+            color: #137333; 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            font-weight: bold;
+            display: inline-block;
+        }
+        .badge-removed { 
+            background-color: #fce8e6; 
+            color: #c5221f; 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            font-weight: bold;
+            display: inline-block;
+        }
         
         .toc {
             margin-bottom: 30px;
@@ -86,6 +100,11 @@
             font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
             position: sticky;
             top: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover {
+            background-color: #f1f3f4;
         }
         .row-added {
             background-color: #e6f4ea;
@@ -115,8 +134,8 @@
         </p>
         <p>
             <span><strong>Changed Tables:</strong> <%= totalChangedTables %></span>
-            <span class="badge-added">➕ Added Rows: <%= totalAdded %></span>
-            <span class="badge-removed">➖ Removed Rows: <%= totalRemoved %></span>
+            <span class="badge-added">+ <%= totalAdded %> Added</span>
+            <span class="badge-removed">- <%= totalRemoved %> Removed</span>
         </p>
     </div>
 
@@ -140,8 +159,8 @@
                         <%= report.filename %>
                     </h2>
                     <div style="font-size: 14px; font-weight: bold;">
-                        <span class="badge-added" style="margin-right: 15px;">➕ <%= report.addedCount %></span>
-                        <span class="badge-removed">➖ <%= report.removedCount %></span>
+                        <span class="badge-added" style="margin-right: 15px;">+ <%= report.addedCount %></span>
+                        <span class="badge-removed">- <%= report.removedCount %></span>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -174,5 +193,48 @@
         </div>
     <% } %>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('table').forEach(table => {
+        const headers = table.querySelectorAll('th');
+        const tbody = table.querySelector('tbody');
+        
+        headers.forEach((header, index) => {
+            header.addEventListener('click', () => {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const isAscending = header.getAttribute('data-sort') === 'asc';
+                const direction = isAscending ? -1 : 1;
+                
+                // Update sort state
+                headers.forEach(h => h.setAttribute('data-sort', 'none'));
+                header.setAttribute('data-sort', isAscending ? 'desc' : 'asc');
+                
+                // Update visual indicators
+                headers.forEach(h => {
+                    let text = h.innerText.replace(/ [↑↓]$/, '');
+                    if (h.getAttribute('data-sort') === 'asc') text += ' ↑';
+                    if (h.getAttribute('data-sort') === 'desc') text += ' ↓';
+                    h.innerText = text;
+                });
+                
+                // Sort rows
+                rows.sort((a, b) => {
+                    const aText = a.children[index].textContent.trim();
+                    const bText = b.children[index].textContent.trim();
+                    
+                    const aNum = parseFloat(aText);
+                    const bNum = parseFloat(bText);
+                    if (!isNaN(aNum) && !isNaN(bNum) && aNum.toString() === aText && bNum.toString() === bText) {
+                        return (aNum - bNum) * direction;
+                    }
+                    return aText.localeCompare(bText) * direction;
+                });
+                
+                tbody.append(...rows);
+            });
+        });
+    });
+});
+</script>
 </body>
 </html>
