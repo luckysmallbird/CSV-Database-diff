@@ -29,27 +29,56 @@
     </div>
 
     <% if (reports.length > 0) { %>
+        <% 
+            const changedReports = reports.filter(r => r.diffs.length > 0);
+            const identicalReports = reports.filter(r => r.diffs.length === 0);
+        %>
         <div class="toc-container">
-            <div class="toc-links">
-                <strong>快速跳轉：</strong><br>
-                <% reports.forEach(function(report) { %>
-                    <a class="toc-link" href="#table-<%= report.filename %>">
-                        <%= report.filename %> 
-                        (<%= report.diffs.length %> 變更)
-                    </a>
-                <% }); %>
+            <div class="toc-header-bar">
+                <div class="toc-title">
+                    <strong>快速跳轉</strong>
+                    <span style="font-size: 13px; color: #5f6368; font-weight: normal;">（有變更 <%= changedReports.length %> 表，完全相同 <%= identicalReports.length %> 表）</span>
+                </div>
+                <div class="toc-actions">
+                    <button class="btn-action" id="btn-toggle-only-checked">只顯示已勾選項目</button>
+                    <button class="btn-action" id="btn-select-all-diffs">全選所有變更</button>
+                    <button class="btn-action" id="btn-clear-all-diffs">清除所有勾選</button>
+                    <button class="btn-action" id="btn-expand-all">全展開</button>
+                    <button class="btn-action" id="btn-collapse-all">全縮小</button>
+                </div>
             </div>
-            <div class="toc-actions">
-                <button class="btn-action" id="btn-toggle-only-checked">只顯示已勾選項目</button>
-                <button class="btn-action" id="btn-select-all-diffs">全選所有變更</button>
-                <button class="btn-action" id="btn-clear-all-diffs">清除所有勾選</button>
-                <button class="btn-action" id="btn-expand-all">全展開</button>
-                <button class="btn-action" id="btn-collapse-all">全縮小</button>
+
+            <div class="toc-links-section">
+                <div class="toc-changed-links">
+                    <% changedReports.forEach(function(report) { %>
+                        <a class="toc-link" href="#table-<%= report.filename %>">
+                            <%= report.filename %> 
+                            <span class="toc-badge-count">(<%= report.diffs.length %> 變更)</span>
+                        </a>
+                    <% }); %>
+                </div>
+
+                <% if (identicalReports.length > 0) { %>
+                    <details class="toc-identical-details">
+                        <summary class="toc-identical-summary">
+                            <span class="toc-summary-arrow">▾</span>
+                            <span>完全相同表格 (<%= identicalReports.length %>)</span>
+                        </summary>
+                        <div class="toc-identical-links">
+                            <% identicalReports.forEach(function(report) { %>
+                                <a class="toc-link toc-link-identical" href="#table-<%= report.filename %>">
+                                    <%= report.filename %>
+                                    <span class="toc-badge-count">(0 變更)</span>
+                                </a>
+                            <% }); %>
+                        </div>
+                    </details>
+                <% } %>
             </div>
         </div>
 
         <% reports.forEach(function(report) { %>
-            <div class="table-card" id="table-<%= report.filename %>" data-filename="<%= report.filename %>" data-tablename="<%= report.tableName %>" data-pks="<%= JSON.stringify(report.primaryKeys) %>">
+            <div class="table-card <%= report.diffs.length === 0 ? 'table-card-identical' : '' %>" id="table-<%= report.filename %>" data-filename="<%= report.filename %>" data-tablename="<%= report.tableName %>" data-pks="<%= JSON.stringify(report.primaryKeys) %>">
                 <div class="table-header" onclick="this.parentElement.classList.toggle('collapsed')">
                     <h2>
                         <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -65,6 +94,9 @@
                             <span class="badge-pk" title="Primary Key 依據 schema.sql 自動解析">PK: <%= report.primaryKeys.join(', ') %></span>
                         <% } else { %>
                             <span class="badge-pk badge-no-pk" title="此資料表未設定唯一主鍵。系統採用全欄位比對；刪除時採取安全去重模式（精確只刪除 1 筆重複項，避免整批誤刪）；新增時則插入全部欄位。">No Primary Key</span>
+                        <% } %>
+                        <% if (report.diffs.length === 0) { %>
+                            <span class="badge-identical-tag" title="此資料表兩邊資料庫內容完全一致，無任何差異">兩邊資料庫完全一致</span>
                         <% } %>
                     </h2>
                     <div style="font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 8px;">
@@ -151,10 +183,6 @@
                                     <% }); %>
                                 </tbody>
                             </table>
-                        </div>
-                    <% } else { %>
-                        <div style="padding: 15px 20px; color: #5f6368; font-size: 13px;">
-                            兩邊資料庫完全一致，無任何新增、刪除或修改。
                         </div>
                     <% } %>
 

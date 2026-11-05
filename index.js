@@ -367,6 +367,15 @@ allFiles.forEach(file => {
     }
 });
 
+// Sort reports: tables with diffs first, then identical tables. Both groups sorted alphabetically by filename.
+reports.sort((a, b) => {
+    const aHasDiff = a.diffs.length > 0;
+    const bHasDiff = b.diffs.length > 0;
+    if (aHasDiff && !bHasDiff) return -1;
+    if (!aHasDiff && bHasDiff) return 1;
+    return a.filename.localeCompare(b.filename);
+});
+
 const templateStr = fs.readFileSync(path.join(__dirname, 'templates', 'report.ejs'), 'utf8');
 const customCss = fs.readFileSync(path.join(__dirname, 'templates', 'style.css'), 'utf8');
 const clientJs = fs.readFileSync(path.join(__dirname, 'templates', 'client.js'), 'utf8');
