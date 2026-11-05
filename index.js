@@ -12,6 +12,11 @@ if (!oldDir || !newDir) {
     process.exit(1);
 }
 
+// Normalize table name for flexible matching (removes '.', '_', '-' and lowercases)
+const normalizeTableName = (name) => {
+    return name.toLowerCase().replace(/[\._\-]/g, '');
+};
+
 // Recursively find all files matching a condition
 const findFilesRecursively = (dir, predicate) => {
     let results = [];
@@ -40,22 +45,26 @@ const getCsvFiles = (dir) => {
     return results;
 };
 
-// Extract date from folder name like vpa-dev-pvpa-20260908
-const extractDateFromDir = (dirPath) => {
+// Extract version / folder identifier
+const extractVersionInfo = (dirPath) => {
     if (!fs.existsSync(dirPath)) return 'Unknown';
-    const subdirs = fs.readdirSync(dirPath);
-    for (const subdir of subdirs) {
-        const match = subdir.match(/(\d{8})/);
-        if (match) return match[1];
+    const subdirs = fs.readdirSync(dirPath).filter(f => {
+        try {
+            return fs.statSync(path.join(dirPath, f)).isDirectory();
+        } catch {
+            return false;
+        }
+    });
+    if (subdirs.length > 0) {
+        return subdirs[0];
     }
-    return 'Unknown';
+    return path.basename(dirPath);
 };
 
-// Generic parser for PostgreSQL dump schema.sql to extract Primary Keys
+// Generic parser for PostgreSQL dump schema.sql to extract real Table names & Primary Keys
 const parseSchemaSql = (dirs) => {
-    const tableKeys = {}; // lowercase tableName -> { tableName, primaryKeys: [...] }
+    const tableMap = {}; // normalizedName -> { tableName, primaryKeys: [...] }
     
-    // Look for schema.sql in oldDir, newDir, or current directory
     let schemaFiles = [];
     dirs.forEach(d => {
         if (fs.existsSync(d)) {
@@ -67,43 +76,52 @@ const parseSchemaSql = (dirs) => {
     }
 
     if (schemaFiles.length === 0) {
-        return tableKeys;
+        return tableMap;
     }
 
-    // Read the first schema.sql found (or merge if multiple)
     schemaFiles.forEach(sqlPath => {
         try {
             const content = fs.readFileSync(sqlPath, 'utf8');
 
-            // Pattern 1: ALTER TABLE [ONLY] [public.]"tableName" ADD CONSTRAINT ... PRIMARY KEY (col1, col2, ...);
-            const alterPkRegex = /ALTER\s+TABLE\s+(?:ONLY\s+)?(?:[\w"]+\.)?["']?(\w+)["']?\s+ADD\s+CONSTRAINT\s+["']?\w+["']?\s+PRIMARY\s+KEY\s*\(([^)]+)\);/gi;
+            // 1. Scan CREATE TABLE public."Attributes.Synonym" or CREATE TABLE public.Attributes
+            const createTableRegex = /CREATE\s+TABLE\s+(?:[\w"]+\.)?["']?([^"'\s(]+)["']?\s*\(([\s\S]*?)\);/gi;
             let match;
-            while ((match = alterPkRegex.exec(content)) !== null) {
-                const table = match[1];
-                const colsRaw = match[2];
-                const cols = colsRaw.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
-                tableKeys[table.toLowerCase()] = {
-                    tableName: table,
-                    primaryKeys: cols
-                };
+            while ((match = createTableRegex.exec(content)) !== null) {
+                const rawName = match[1];
+                const tableBody = match[2];
+                const norm = normalizeTableName(rawName);
+
+                if (!tableMap[norm]) {
+                    tableMap[norm] = {
+                        tableName: rawName,
+                        primaryKeys: []
+                    };
+                }
+
+                // Check for inline PRIMARY KEY constraint
+                const pkConstraintMatch = tableBody.match(/CONSTRAINT\s+["']?\w+["']?\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i) ||
+                                          tableBody.match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+                if (pkConstraintMatch) {
+                    const cols = pkConstraintMatch[1].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+                    tableMap[norm].primaryKeys = cols;
+                }
             }
 
-            // Pattern 2: Inline PRIMARY KEY in CREATE TABLE ... ( ... PRIMARY KEY (...) );
-            const createTableRegex = /CREATE\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([\s\S]*?)\);/gi;
-            while ((match = createTableRegex.exec(content)) !== null) {
-                const table = match[1];
-                const tableBody = match[2];
-                const tLower = table.toLowerCase();
-                if (!tableKeys[tLower]) {
-                    const pkConstraintMatch = tableBody.match(/CONSTRAINT\s+["']?\w+["']?\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i) ||
-                                              tableBody.match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-                    if (pkConstraintMatch) {
-                        const cols = pkConstraintMatch[1].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
-                        tableKeys[tLower] = {
-                            tableName: table,
-                            primaryKeys: cols
-                        };
-                    }
+            // 2. Scan ALTER TABLE ONLY public."TableName" ADD CONSTRAINT ... PRIMARY KEY (col1, col2, ...);
+            const alterPkRegex = /ALTER\s+TABLE\s+(?:ONLY\s+)?(?:[\w"]+\.)?["']?([^"'\s]+)["']?\s+ADD\s+CONSTRAINT\s+["']?\w+["']?\s+PRIMARY\s+KEY\s*\(([^)]+)\);/gi;
+            while ((match = alterPkRegex.exec(content)) !== null) {
+                const rawName = match[1];
+                const colsRaw = match[2];
+                const norm = normalizeTableName(rawName);
+                const cols = colsRaw.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+
+                if (!tableMap[norm]) {
+                    tableMap[norm] = {
+                        tableName: rawName,
+                        primaryKeys: cols
+                    };
+                } else {
+                    tableMap[norm].primaryKeys = cols;
                 }
             }
         } catch (err) {
@@ -111,17 +129,17 @@ const parseSchemaSql = (dirs) => {
         }
     });
 
-    return tableKeys;
+    return tableMap;
 };
 
-const oldDate = extractDateFromDir(oldDir);
-const newDate = extractDateFromDir(newDir);
+const oldVersionName = extractVersionInfo(oldDir);
+const newVersionName = extractVersionInfo(newDir);
 
 const oldFilesMap = getCsvFiles(oldDir);
 const newFilesMap = getCsvFiles(newDir);
 const allFiles = Array.from(new Set([...Object.keys(oldFilesMap), ...Object.keys(newFilesMap)])).sort();
 
-const schemaKeysMap = parseSchemaSql([oldDir, newDir, '.']);
+const schemaTableMap = parseSchemaSql([oldDir, newDir, '.']);
 
 const reports = [];
 let totalAdded = 0;
@@ -133,7 +151,8 @@ let totalChangedTables = 0;
 allFiles.forEach(file => {
     const oldPath = oldFilesMap[file];
     const newPath = newFilesMap[file];
-    const rawTableName = file.replace(/\.csv$/i, '');
+    const rawFileBaseName = file.replace(/\.csv$/i, '');
+    const normName = normalizeTableName(rawFileBaseName);
     
     let oldRows = [];
     let newRows = [];
@@ -159,16 +178,15 @@ allFiles.forEach(file => {
         }
     }
 
-    // Determine actual Primary Keys for this table
-    const schemaInfo = schemaKeysMap[rawTableName.toLowerCase()];
-    const tableName = schemaInfo ? schemaInfo.tableName : rawTableName;
+    // Determine actual PostgreSQL Table name and PK from schemaTableMap
+    const schemaInfo = schemaTableMap[normName];
+    const tableName = schemaInfo ? schemaInfo.tableName : rawFileBaseName;
     let primaryKeys = [];
 
     if (schemaInfo && Array.isArray(schemaInfo.primaryKeys)) {
-        // Validate that all PK columns exist in headers
         const headerSet = new Set(headers);
         const validPks = schemaInfo.primaryKeys.filter(pk => headerSet.has(pk));
-        if (validPks.length === schemaInfo.primaryKeys.length) {
+        if (validPks.length === schemaInfo.primaryKeys.length && validPks.length > 0) {
             primaryKeys = validPks;
         }
     }
@@ -185,7 +203,6 @@ allFiles.forEach(file => {
         const pkIndices = primaryKeys.map(pk => headers.indexOf(pk));
         const getKey = (row) => pkIndices.map(idx => (row[idx] !== undefined ? row[idx] : '')).join('|||');
 
-        // Check uniqueness in old and new rows
         const oldMap = new Map();
         let oldDuplicate = false;
         oldRows.forEach(row => {
@@ -203,7 +220,7 @@ allFiles.forEach(file => {
         });
 
         if (!oldDuplicate && !newDuplicate) {
-            // Keys are truly unique! Run 3-way diff:
+            // Keys are truly unique
             newMap.forEach((newRow, key) => {
                 if (!oldMap.has(key)) {
                     diffs.push({
@@ -255,7 +272,7 @@ allFiles.forEach(file => {
                 }
             });
         } else {
-            // Duplicate keys found; fall back to set-based comparison
+            // Duplicate keys found in data; fall back to set-based comparison
             primaryKeys = [];
         }
     }
@@ -291,14 +308,24 @@ allFiles.forEach(file => {
             if (newCount > oldCount) {
                 const diffCount = newCount - oldCount;
                 for (let i = 0; i < diffCount; i++) {
-                    diffs.push({ type: 'added', data: row });
+                    diffs.push({
+                        type: 'added',
+                        data: row
+                    });
                     tableAdded++;
                     totalAdded++;
                 }
             } else if (oldCount > newCount) {
                 const diffCount = oldCount - newCount;
+                const isDedup = newCount > 0;
                 for (let i = 0; i < diffCount; i++) {
-                    diffs.push({ type: 'removed', data: row });
+                    diffs.push({
+                        type: 'removed',
+                        data: row,
+                        isDeduplication: isDedup,
+                        oldCount: oldCount,
+                        newCount: newCount
+                    });
                     tableRemoved++;
                     totalRemoved++;
                 }
@@ -341,6 +368,9 @@ allFiles.forEach(file => {
 });
 
 const templateStr = fs.readFileSync(path.join(__dirname, 'templates', 'report.ejs'), 'utf8');
+const customCss = fs.readFileSync(path.join(__dirname, 'templates', 'style.css'), 'utf8');
+const clientJs = fs.readFileSync(path.join(__dirname, 'templates', 'client.js'), 'utf8');
+
 const html = ejs.render(templateStr, {
     reports,
     totalAdded,
@@ -348,12 +378,15 @@ const html = ejs.render(templateStr, {
     totalModified,
     totalIdentical,
     totalChangedTables,
-    oldDate,
-    newDate,
+    oldVersionName,
+    newVersionName,
+    customCss,
+    clientJs,
     date: new Date().toLocaleString()
 });
 
 fs.writeFileSync(outFile, html);
 console.log(`Report successfully generated at ${outFile}`);
+console.log(`Old: ${oldVersionName} vs New: ${newVersionName}`);
 console.log(`Total Tables: ${reports.length}, Tables Changed: ${totalChangedTables}`);
 console.log(`Added: ${totalAdded}, Removed: ${totalRemoved}, Modified: ${totalModified}, Identical: ${totalIdentical}`);

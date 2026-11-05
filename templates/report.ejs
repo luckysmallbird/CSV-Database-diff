@@ -5,446 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Diff & SQL Sync Report</title>
     <style>
-        body {
-            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #202124;
-            margin: 0;
-            padding: 20px 40px 100px 40px;
-        }
-        h1 {
-            font-weight: 400;
-            color: #1a73e8;
-            margin-bottom: 8px;
-        }
-        .subtitle {
-            color: #5f6368;
-            font-size: 14px;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-        .summary {
-            background: #fff;
-            padding: 16px 24px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            margin-bottom: 24px;
-        }
-        .summary p {
-            margin: 6px 0;
-        }
-        .summary span {
-            margin-right: 15px;
-            font-size: 15px;
-        }
-        .badge-added { 
-            background-color: #e6f4ea; 
-            color: #137333; 
-            padding: 4px 8px; 
-            border-radius: 4px; 
-            font-weight: bold;
-            display: inline-block;
-        }
-        .badge-removed { 
-            background-color: #fce8e6; 
-            color: #c5221f; 
-            padding: 4px 8px; 
-            border-radius: 4px; 
-            font-weight: bold;
-            display: inline-block;
-        }
-        .badge-modified {
-            background-color: #fef7e0;
-            color: #b06000;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .badge-identical {
-            background-color: #f1f3f4;
-            color: #5f6368;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .badge-pk {
-            background-color: #e8f0fe;
-            color: #1967d2;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-            margin-left: 8px;
-        }
-        
-        .toc-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        .toc-links {
-            flex: 1;
-        }
-        .toc-link {
-            display: inline-block;
-            background: #e8f0fe;
-            color: #1a73e8;
-            padding: 6px 14px;
-            border-radius: 16px;
-            text-decoration: none;
-            margin: 4px 4px 4px 0;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
-        .toc-link:hover {
-            background: #d2e3fc;
-        }
-        .toc-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .btn-action {
-            background: #fff;
-            border: 1px solid #dadce0;
-            color: #1a73e8;
-            padding: 6px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .btn-action:hover {
-            background: #f1f3f4;
-            border-color: #c6c6c6;
-        }
-        .btn-action.active {
-            background: #1a73e8;
-            color: #fff;
-            border-color: #1a73e8;
-        }
-
-        .table-card {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            margin-bottom: 35px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-        .table-header {
-            background: #f1f3f4;
-            padding: 14px 20px;
-            border-bottom: 1px solid #dadce0;
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .table-header:hover {
-            background: #e8eaed;
-        }
-        .table-header h2 {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .chevron {
-            transition: transform 0.3s ease;
-        }
-        .collapsed .chevron {
-            transform: rotate(-90deg);
-        }
-        .collapsed .table-card-body {
-            display: none;
-        }
-
-        .card-toolbar {
-            background: #fafafa;
-            padding: 8px 20px;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 13px;
-        }
-        .card-toolbar-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-mini {
-            background: #fff;
-            border: 1px solid #dadce0;
-            color: #3c4043;
-            padding: 4px 10px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            transition: background 0.15s;
-        }
-        .btn-mini:hover {
-            background: #f1f3f4;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-            max-height: 550px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            font-family: 'Consolas', 'Courier New', monospace;
-        }
-        th, td {
-            padding: 10px 14px;
-            text-align: left;
-            border-bottom: 1px solid #e8eaed;
-            white-space: nowrap;
-        }
-        th {
-            background: #fff;
-            color: #5f6368;
-            font-weight: bold;
-            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            cursor: pointer;
-            user-select: none;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        th:hover {
-            background-color: #f1f3f4;
-        }
-        .th-checkbox {
-            cursor: default !important;
-            width: 32px;
-            text-align: center;
-        }
-
-        .row-added {
-            background-color: #e6f4ea;
-        }
-        .row-removed {
-            background-color: #fce8e6;
-            text-decoration: line-through;
-            color: #c5221f;
-        }
-        .row-modified {
-            background-color: #fefcf3;
-        }
-        .row-identical {
-            background-color: #ffffff;
-            color: #80868b;
-        }
-
-        .type-icon {
-            font-weight: bold;
-            text-align: center;
-            width: 36px;
-        }
-        .type-icon-add { color: #137333; font-weight: bold; }
-        .type-icon-rem { color: #c5221f; font-weight: bold; }
-        .type-icon-mod { color: #b06000; font-weight: bold; }
-
-        .diff-cell {
-            background-color: #fff8e1;
-            border-radius: 3px;
-            padding: 2px 4px;
-        }
-        .diff-old {
-            color: #c5221f;
-            text-decoration: line-through;
-            margin-right: 4px;
-        }
-        .diff-new {
-            color: #137333;
-            font-weight: bold;
-        }
-
-        .identical-section {
-            border-top: 1px dashed #dadce0;
-            background: #fafafa;
-        }
-        .identical-toggle {
-            padding: 10px 20px;
-            cursor: pointer;
-            color: #5f6368;
-            font-size: 13px;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .identical-toggle:hover {
-            background: #f1f3f4;
-            color: #202124;
-        }
-        .identical-content {
-            display: none;
-            max-height: 350px;
-            overflow-y: auto;
-            border-top: 1px solid #e0e0e0;
-        }
-        .identical-table {
-            color: #80868b;
-            font-size: 12px;
-        }
-
-        /* Floating SQL Action Bar */
-        .sql-bar {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #202124;
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 30px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            z-index: 1000;
-            font-size: 14px;
-        }
-        .sql-bar-counter {
-            font-weight: 500;
-        }
-        .sql-bar-counter strong {
-            color: #8ab4f8;
-            font-size: 16px;
-        }
-        .sql-bar-btns {
-            display: flex;
-            gap: 10px;
-        }
-        .btn-sql {
-            background: #8ab4f8;
-            color: #202124;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-sql:hover {
-            background: #aecbfa;
-        }
-        .btn-sql-secondary {
-            background: #3c4043;
-            color: #fff;
-            border: 1px solid #5f6368;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-sql-secondary:hover {
-            background: #4f5357;
-        }
-
-        /* Modal for SQL preview */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-card {
-            background: #fff;
-            width: 80%;
-            max-width: 900px;
-            height: 80%;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .modal-header {
-            padding: 16px 24px;
-            border-bottom: 1px solid #dadce0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-header h3 {
-            margin: 0;
-            font-size: 18px;
-            color: #202124;
-        }
-        .modal-body {
-            flex: 1;
-            padding: 16px 24px;
-            overflow-y: auto;
-            background: #282c34;
-        }
-        .sql-output {
-            color: #abb2bf;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 13px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            margin: 0;
-            line-height: 1.5;
-        }
-        .modal-footer {
-            padding: 12px 24px;
-            border-top: 1px solid #dadce0;
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            background: #f8f9fa;
-        }
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #5f6368;
-        }
-        .toast {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #323232;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            z-index: 3000;
-        }
-        .toast.show {
-            opacity: 1;
-        }
+        <%- customCss %>
     </style>
 </head>
 <body>
@@ -454,8 +15,8 @@
     
     <div class="summary">
         <p>
-            <strong>Old Version:</strong> <%= oldDate %> &nbsp;|&nbsp; 
-            <strong>New Version:</strong> <%= newDate %> &nbsp;|&nbsp; 
+            <strong>Old Target:</strong> <%= oldVersionName %> &nbsp;|&nbsp; 
+            <strong>New Source:</strong> <%= newVersionName %> &nbsp;|&nbsp; 
             <strong>Generated on:</strong> <%= date %>
         </p>
         <p>
@@ -499,10 +60,13 @@
                             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                         </svg>
                         <%= report.filename %>
+                        <% if (report.tableName !== report.filename.replace(/\.csv$/i, '')) { %>
+                            <span class="table-realname">(SQL: public."<%= report.tableName %>")</span>
+                        <% } %>
                         <% if (report.primaryKeys && report.primaryKeys.length > 0) { %>
                             <span class="badge-pk" title="Primary Key 依據 schema.sql 自動解析">PK: <%= report.primaryKeys.join(', ') %></span>
                         <% } else { %>
-                            <span class="badge-pk" style="background-color: #f1f3f4; color: #5f6368;" title="無明確主鍵，以 DELETE/INSERT 模式處理">無主鍵模式</span>
+                            <span class="badge-pk" style="background-color: #f1f3f4; color: #5f6368;" title="無明確主鍵，以 ctid LIMIT 1 安全模式處理">無主鍵模式</span>
                         <% } %>
                     </h2>
                     <div style="font-size: 14px; font-weight: bold;">
@@ -524,8 +88,12 @@
                                 <% if (report.removedCount > 0) { %><button class="btn-mini btn-select-table-rem">只選刪除 (-)</button><% } %>
                                 <button class="btn-mini btn-select-table-none">清空</button>
                             </div>
-                            <div style="color: #5f6368;">
-                                差異共 <%= report.diffs.length %> 筆
+                            <div class="card-toolbar-right">
+                                <div class="search-box">
+                                    <input type="text" class="table-search-input" placeholder="過濾關鍵字 (支援模糊搜尋)...">
+                                    <button class="search-clear-btn" title="清除搜尋">&times;</button>
+                                </div>
+                                <span class="table-count-label">差異共 <%= report.diffs.length %> 筆</span>
                             </div>
                         </div>
 
@@ -533,8 +101,8 @@
                             <table class="diff-table" data-headers="<%= JSON.stringify(report.headers) %>">
                                 <thead>
                                     <tr>
-                                        <th class="th-checkbox"><input type="checkbox" class="header-checkbox" title="全選/全不選本頁變更"></th>
-                                        <th width="40">類型</th>
+                                        <th class="th-checkbox"><input type="checkbox" class="header-checkbox" title="全選/全不選目前可見變更"></th>
+                                        <th width="70">類型</th>
                                         <% report.headers.forEach(function(header) { %>
                                             <th class="<%= (report.primaryKeys && report.primaryKeys.includes(header)) ? 'th-pk' : '' %>">
                                                 <%= header %>
@@ -544,19 +112,24 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <% report.diffs.forEach(function(diff, diffIdx) { %>
+                                    <% report.diffs.forEach(function(diff) { %>
                                         <% if (diff.type === 'added') { %>
                                             <tr class="row-added" data-diff-type="added" data-row-data="<%= JSON.stringify(diff.data) %>">
                                                 <td class="th-checkbox"><input type="checkbox" class="row-checkbox"></td>
-                                                <td class="type-icon type-icon-add">+</td>
+                                                <td class="type-icon type-icon-add">+ 新增</td>
                                                 <% diff.data.forEach(function(cell) { %>
                                                     <td><%= cell %></td>
                                                 <% }); %>
                                             </tr>
                                         <% } else if (diff.type === 'removed') { %>
-                                            <tr class="row-removed" data-diff-type="removed" data-row-data="<%= JSON.stringify(diff.data) %>">
+                                            <tr class="row-removed <%= diff.isDeduplication ? 'row-dedup' : '' %>" data-diff-type="removed" data-row-data="<%= JSON.stringify(diff.data) %>" data-is-dedup="<%= diff.isDeduplication ? 'true' : 'false' %>">
                                                 <td class="th-checkbox"><input type="checkbox" class="row-checkbox"></td>
-                                                <td class="type-icon type-icon-rem">-</td>
+                                                <td class="type-icon type-icon-rem">
+                                                    - 刪除
+                                                    <% if (diff.isDeduplication) { %>
+                                                        <span class="badge-dedup" title="新版保留 1 筆，舊版重複有 <%= diff.oldCount %> 筆，此操作僅安全刪除 1 筆">去重</span>
+                                                    <% } %>
+                                                </td>
                                                 <% diff.data.forEach(function(cell) { %>
                                                     <td><%= cell %></td>
                                                 <% }); %>
@@ -564,7 +137,7 @@
                                         <% } else if (diff.type === 'modified') { %>
                                             <tr class="row-modified" data-diff-type="modified" data-old-data="<%= JSON.stringify(diff.oldData) %>" data-new-data="<%= JSON.stringify(diff.newData) %>" data-changed-indices="<%= JSON.stringify(diff.changedIndices) %>">
                                                 <td class="th-checkbox"><input type="checkbox" class="row-checkbox"></td>
-                                                <td class="type-icon type-icon-mod">~</td>
+                                                <td class="type-icon type-icon-mod">~ 修改</td>
                                                 <% report.headers.forEach(function(header, colIdx) { %>
                                                     <% if (diff.changedIndices.includes(colIdx)) { %>
                                                         <td class="diff-cell" title="Old: <%= diff.oldData[colIdx] %> &#10;New: <%= diff.newData[colIdx] %>">
@@ -658,296 +231,7 @@
     <div class="toast" id="toast">已複製到剪貼簿</div>
 
 <script>
-// Toggle identical section
-function toggleIdentical(el) {
-    const content = el.nextElementSibling;
-    const arrow = el.querySelector('.arrow-icon');
-    if (content.style.display === 'block') {
-        content.style.display = 'none';
-        arrow.textContent = '▶';
-    } else {
-        content.style.display = 'block';
-        arrow.textContent = '▼';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Expand / Collapse All
-    const btnExpandAll = document.getElementById('btn-expand-all');
-    const btnCollapseAll = document.getElementById('btn-collapse-all');
-    if (btnExpandAll && btnCollapseAll) {
-        btnExpandAll.addEventListener('click', () => {
-            document.querySelectorAll('.table-card').forEach(card => card.classList.remove('collapsed'));
-        });
-        btnCollapseAll.addEventListener('click', () => {
-            document.querySelectorAll('.table-card').forEach(card => card.classList.add('collapsed'));
-        });
-    }
-
-    // Checkbox and Selection State
-    const updateSelectedCount = () => {
-        const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-        document.getElementById('selected-count').textContent = checkedCount;
-    };
-
-    // Header Checkbox (Select all within that table)
-    document.querySelectorAll('.header-checkbox').forEach(headerCb => {
-        headerCb.addEventListener('change', (e) => {
-            const table = e.target.closest('table');
-            const rowCheckboxes = table.querySelectorAll('.row-checkbox');
-            rowCheckboxes.forEach(cb => cb.checked = e.target.checked);
-            updateSelectedCount();
-        });
-    });
-
-    // Row Checkbox change
-    document.querySelectorAll('.row-checkbox').forEach(cb => {
-        cb.addEventListener('change', () => {
-            updateSelectedCount();
-        });
-    });
-
-    // Global Select All / Clear All
-    document.getElementById('btn-select-all-diffs').addEventListener('click', () => {
-        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = true);
-        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = true);
-        updateSelectedCount();
-    });
-
-    document.getElementById('btn-clear-all-diffs').addEventListener('click', () => {
-        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = false);
-        updateSelectedCount();
-    });
-
-    // Per-table action buttons
-    document.querySelectorAll('.table-card').forEach(card => {
-        const rowCheckboxes = card.querySelectorAll('.row-checkbox');
-        
-        const setTypeCheck = (predicate) => {
-            rowCheckboxes.forEach(cb => {
-                const tr = cb.closest('tr');
-                cb.checked = predicate(tr.getAttribute('data-diff-type'));
-            });
-            updateSelectedCount();
-        };
-
-        const btnAll = card.querySelector('.btn-select-table-all');
-        if (btnAll) btnAll.addEventListener('click', () => setTypeCheck(() => true));
-
-        const btnAdd = card.querySelector('.btn-select-table-add');
-        if (btnAdd) btnAdd.addEventListener('click', () => setTypeCheck(t => t === 'added'));
-
-        const btnMod = card.querySelector('.btn-select-table-mod');
-        if (btnMod) btnMod.addEventListener('click', () => setTypeCheck(t => t === 'modified'));
-
-        const btnRem = card.querySelector('.btn-select-table-rem');
-        if (btnRem) btnRem.addEventListener('click', () => setTypeCheck(t => t === 'removed'));
-
-        const btnNone = card.querySelector('.btn-select-table-none');
-        if (btnNone) btnNone.addEventListener('click', () => setTypeCheck(() => false));
-    });
-
-    // Toast helper
-    const showToast = (msg) => {
-        const toast = document.getElementById('toast');
-        toast.textContent = msg;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-    };
-
-    // PostgreSQL Value Escape
-    const escapePg = (val) => {
-        if (val === null || val === undefined || val === '' || val === '\\N') {
-            return 'NULL';
-        }
-        return "'" + String(val).replace(/'/g, "''") + "'";
-    };
-
-    // Generate PostgreSQL Sync Script from checked rows
-    const generateSql = () => {
-        const checkedRows = document.querySelectorAll('.row-checkbox:checked');
-        if (checkedRows.length === 0) {
-            return '-- 尚未勾選任何差異列。\n-- 請在上方勾選欲同步的列後，再次產生 SQL。';
-        }
-
-        const lines = [];
-        lines.push('-- =========================================================');
-        lines.push('-- PostgreSQL Database Synchronization Script');
-        lines.push('-- Target: Synchronize Old DB to match New DB');
-        lines.push(`-- Generated: ${new Date().toLocaleString()}`);
-        lines.push(`-- Total Selected Operations: ${checkedRows.length}`);
-        lines.push('-- =========================================================\n');
-        lines.push('BEGIN;\n');
-
-        let currentTable = null;
-
-        checkedRows.forEach(cb => {
-            const tr = cb.closest('tr');
-            const card = tr.closest('.table-card');
-            const tableEl = tr.closest('table');
-
-            const tableName = card.getAttribute('data-tablename');
-            const pks = JSON.parse(card.getAttribute('data-pks') || '[]');
-            const headers = JSON.parse(tableEl.getAttribute('data-headers') || '[]');
-            const diffType = tr.getAttribute('data-diff-type');
-
-            if (tableName !== currentTable) {
-                currentTable = tableName;
-                lines.push(`-- Table: public."${tableName}"`);
-            }
-
-            if (diffType === 'added') {
-                // INSERT: New DB has it, Old DB doesn't -> Insert into Old DB
-                const data = JSON.parse(tr.getAttribute('data-row-data'));
-                const colNames = headers.map(h => `"${h}"`).join(', ');
-                const colValues = data.map(v => escapePg(v)).join(', ');
-                lines.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${colValues});`);
-
-            } else if (diffType === 'removed') {
-                // DELETE: Old DB has it, New DB doesn't -> Delete from Old DB
-                const data = JSON.parse(tr.getAttribute('data-row-data'));
-                if (pks.length > 0) {
-                    const whereClauses = pks.map(pk => {
-                        const idx = headers.indexOf(pk);
-                        const val = data[idx];
-                        return val === '' || val === '\\N' ? `"${pk}" IS NULL` : `"${pk}" = ${escapePg(val)}`;
-                    });
-                    lines.push(`DELETE FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')};`);
-                } else {
-                    // Fallback: Delete matching all column values
-                    const whereClauses = headers.map((h, i) => {
-                        const val = data[i];
-                        return val === '' || val === '\\N' ? `"${h}" IS NULL` : `"${h}" = ${escapePg(val)}`;
-                    });
-                    lines.push(`DELETE FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')};`);
-                }
-
-            } else if (diffType === 'modified') {
-                // UPDATE: Both have it, some columns changed -> Update Old DB to New DB values
-                const oldData = JSON.parse(tr.getAttribute('data-old-data'));
-                const newData = JSON.parse(tr.getAttribute('data-new-data'));
-                const changedIndices = JSON.parse(tr.getAttribute('data-changed-indices'));
-
-                const setClauses = changedIndices.map(idx => {
-                    const col = headers[idx];
-                    return `"${col}" = ${escapePg(newData[idx])}`;
-                });
-
-                if (pks.length > 0) {
-                    const whereClauses = pks.map(pk => {
-                        const idx = headers.indexOf(pk);
-                        const val = oldData[idx];
-                        return val === '' || val === '\\N' ? `"${pk}" IS NULL` : `"${pk}" = ${escapePg(val)}`;
-                    });
-                    lines.push(`UPDATE public."${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')};`);
-                } else {
-                    // Fallback for no PK
-                    const whereClauses = headers.map((h, i) => {
-                        const val = oldData[i];
-                        return val === '' || val === '\\N' ? `"${h}" IS NULL` : `"${h}" = ${escapePg(val)}`;
-                    });
-                    lines.push(`UPDATE public."${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')};`);
-                }
-            }
-        });
-
-        lines.push('\nCOMMIT;\n');
-        return lines.join('\n');
-    };
-
-    // Modal Handling
-    const modal = document.getElementById('sql-modal');
-    const sqlCodeBlock = document.getElementById('sql-code-block');
-
-    document.getElementById('btn-preview-sql').addEventListener('click', () => {
-        const sql = generateSql();
-        sqlCodeBlock.textContent = sql;
-        modal.style.display = 'flex';
-    });
-
-    document.getElementById('modal-close').addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
-    });
-
-    // Copy SQL
-    const copySqlToClipboard = () => {
-        const sql = generateSql();
-        navigator.clipboard.writeText(sql).then(() => {
-            showToast('PostgreSQL 腳本已複製至剪貼簿！');
-        }).catch(err => {
-            console.error('Copy failed:', err);
-            showToast('複製失敗，請手動複製');
-        });
-    };
-
-    document.getElementById('btn-copy-sql').addEventListener('click', copySqlToClipboard);
-    document.getElementById('modal-copy-btn').addEventListener('click', copySqlToClipboard);
-
-    // Download SQL
-    const downloadSqlFile = () => {
-        const sql = generateSql();
-        const blob = new Blob([sql], { type: 'text/sql;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `migration_sync_${new Date().toISOString().slice(0,10)}.sql`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('已開始下載 .sql 檔案！');
-    };
-
-    document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
-    document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
-
-    // Table Sorting
-    document.querySelectorAll('.diff-table, .identical-table').forEach(table => {
-        const headers = table.querySelectorAll('th:not(.th-checkbox)');
-        const tbody = table.querySelector('tbody');
-        
-        headers.forEach((header) => {
-            header.addEventListener('click', () => {
-                const index = Array.from(header.parentElement.children).indexOf(header);
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const isAscending = header.getAttribute('data-sort') === 'asc';
-                const direction = isAscending ? -1 : 1;
-                
-                headers.forEach(h => h.setAttribute('data-sort', 'none'));
-                header.setAttribute('data-sort', isAscending ? 'desc' : 'asc');
-                
-                headers.forEach(h => {
-                    let text = h.innerText.replace(/ [↑↓]$/, '');
-                    if (h.getAttribute('data-sort') === 'asc') text += ' ↑';
-                    if (h.getAttribute('data-sort') === 'desc') text += ' ↓';
-                    h.innerText = text;
-                });
-                
-                rows.sort((a, b) => {
-                    const aCell = a.children[index];
-                    const bCell = b.children[index];
-                    if (!aCell || !bCell) return 0;
-                    const aText = aCell.textContent.trim();
-                    const bText = bCell.textContent.trim();
-                    
-                    const aNum = parseFloat(aText);
-                    const bNum = parseFloat(bText);
-                    if (!isNaN(aNum) && !isNaN(bNum) && aNum.toString() === aText && bNum.toString() === bText) {
-                        return (aNum - bNum) * direction;
-                    }
-                    return aText.localeCompare(bText) * direction;
-                });
-                
-                tbody.append(...rows);
-            });
-        });
-    });
-});
+    <%- clientJs %>
 </script>
 </body>
 </html>

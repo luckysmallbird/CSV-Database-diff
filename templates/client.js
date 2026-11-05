@@ -1,0 +1,344 @@
+// Toggle identical section
+function toggleIdentical(el) {
+    const content = el.nextElementSibling;
+    const arrow = el.querySelector('.arrow-icon');
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        arrow.textContent = '▶';
+    } else {
+        content.style.display = 'block';
+        arrow.textContent = '▼';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Expand / Collapse All
+    const btnExpandAll = document.getElementById('btn-expand-all');
+    const btnCollapseAll = document.getElementById('btn-collapse-all');
+    if (btnExpandAll && btnCollapseAll) {
+        btnExpandAll.addEventListener('click', () => {
+            document.querySelectorAll('.table-card').forEach(card => card.classList.remove('collapsed'));
+        });
+        btnCollapseAll.addEventListener('click', () => {
+            document.querySelectorAll('.table-card').forEach(card => card.classList.add('collapsed'));
+        });
+    }
+
+    // Checkbox and Selection State
+    const updateSelectedCount = () => {
+        const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+        document.getElementById('selected-count').textContent = checkedCount;
+    };
+
+    // Header Checkbox (Select all visible within that table)
+    document.querySelectorAll('.header-checkbox').forEach(headerCb => {
+        headerCb.addEventListener('change', (e) => {
+            const table = e.target.closest('table');
+            const rowCheckboxes = table.querySelectorAll('.row-checkbox');
+            rowCheckboxes.forEach(cb => {
+                const tr = cb.closest('tr');
+                if (tr.style.display !== 'none') {
+                    cb.checked = e.target.checked;
+                }
+            });
+            updateSelectedCount();
+        });
+    });
+
+    // Row Checkbox change
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            updateSelectedCount();
+        });
+    });
+
+    // Global Select All / Clear All
+    document.getElementById('btn-select-all-diffs').addEventListener('click', () => {
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            const tr = cb.closest('tr');
+            if (tr.style.display !== 'none') {
+                cb.checked = true;
+            }
+        });
+        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = true);
+        updateSelectedCount();
+    });
+
+    document.getElementById('btn-clear-all-diffs').addEventListener('click', () => {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    });
+
+    // Per-table search and filtering
+    document.querySelectorAll('.table-card').forEach(card => {
+        const searchInput = card.querySelector('.table-search-input');
+        const clearBtn = card.querySelector('.search-clear-btn');
+        const countLabel = card.querySelector('.table-count-label');
+        const diffRows = card.querySelectorAll('.diff-table tbody tr');
+        const totalDiffs = diffRows.length;
+
+        const applyFilter = () => {
+            if (!searchInput) return;
+            const kw = searchInput.value.trim().toLowerCase();
+            if (clearBtn) clearBtn.style.display = kw ? 'block' : 'none';
+
+            let visibleCount = 0;
+            diffRows.forEach(tr => {
+                const text = tr.textContent.toLowerCase();
+                if (!kw || text.includes(kw)) {
+                    tr.style.display = '';
+                    visibleCount++;
+                } else {
+                    tr.style.display = 'none';
+                }
+            });
+
+            if (countLabel) {
+                if (kw) {
+                    countLabel.textContent = `篩選: ${visibleCount} / ${totalDiffs} 筆`;
+                } else {
+                    countLabel.textContent = `差異共 ${totalDiffs} 筆`;
+                }
+            }
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', applyFilter);
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                applyFilter();
+                searchInput.focus();
+            });
+        }
+
+        // Per-table action buttons (respecting filter visibility)
+        const rowCheckboxes = card.querySelectorAll('.row-checkbox');
+        const setTypeCheck = (predicate) => {
+            rowCheckboxes.forEach(cb => {
+                const tr = cb.closest('tr');
+                if (tr.style.display === 'none') return; // Skip hidden rows!
+                cb.checked = predicate(tr.getAttribute('data-diff-type'));
+            });
+            updateSelectedCount();
+        };
+
+        const btnAll = card.querySelector('.btn-select-table-all');
+        if (btnAll) btnAll.addEventListener('click', () => setTypeCheck(() => true));
+
+        const btnAdd = card.querySelector('.btn-select-table-add');
+        if (btnAdd) btnAdd.addEventListener('click', () => setTypeCheck(t => t === 'added'));
+
+        const btnMod = card.querySelector('.btn-select-table-mod');
+        if (btnMod) btnMod.addEventListener('click', () => setTypeCheck(t => t === 'modified'));
+
+        const btnRem = card.querySelector('.btn-select-table-rem');
+        if (btnRem) btnRem.addEventListener('click', () => setTypeCheck(t => t === 'removed'));
+
+        const btnNone = card.querySelector('.btn-select-table-none');
+        if (btnNone) btnNone.addEventListener('click', () => setTypeCheck(() => false));
+    });
+
+    // Toast helper
+    const showToast = (msg) => {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    };
+
+    // PostgreSQL Value Escape
+    const escapePg = (val) => {
+        if (val === null || val === undefined || val === '' || val === '\\N') {
+            return 'NULL';
+        }
+        return "'" + String(val).replace(/'/g, "''") + "'";
+    };
+
+    // Generate PostgreSQL Sync Script from checked rows
+    const generateSql = () => {
+        const checkedRows = document.querySelectorAll('.row-checkbox:checked');
+        if (checkedRows.length === 0) {
+            return '-- 尚未勾選任何差異列。\n-- 請在上方勾選欲同步的列後，再次產生 SQL。';
+        }
+
+        const lines = [];
+        lines.push('-- =========================================================');
+        lines.push('-- PostgreSQL Database Synchronization Script');
+        lines.push('-- Target: Synchronize Old DB to match New DB');
+        lines.push(`-- Generated: ${new Date().toLocaleString()}`);
+        lines.push(`-- Total Selected Operations: ${checkedRows.length}`);
+        lines.push('-- =========================================================\n');
+        lines.push('BEGIN;\n');
+
+        let currentTable = null;
+
+        checkedRows.forEach(cb => {
+            const tr = cb.closest('tr');
+            const card = tr.closest('.table-card');
+            const tableEl = tr.closest('table');
+
+            const tableName = card.getAttribute('data-tablename');
+            const pks = JSON.parse(card.getAttribute('data-pks') || '[]');
+            const headers = JSON.parse(tableEl.getAttribute('data-headers') || '[]');
+            const diffType = tr.getAttribute('data-diff-type');
+
+            if (tableName !== currentTable) {
+                currentTable = tableName;
+                lines.push(`-- Table: public."${tableName}"`);
+            }
+
+            if (diffType === 'added') {
+                // INSERT: New DB has it, Old DB doesn't -> Insert into Old DB
+                const data = JSON.parse(tr.getAttribute('data-row-data'));
+                const colNames = headers.map(h => `"${h}"`).join(', ');
+                const colValues = data.map(v => escapePg(v)).join(', ');
+                lines.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${colValues});`);
+
+            } else if (diffType === 'removed') {
+                // DELETE: Old DB has it, New DB doesn't -> Delete from Old DB
+                const data = JSON.parse(tr.getAttribute('data-row-data'));
+                if (pks.length > 0) {
+                    const whereClauses = pks.map(pk => {
+                        const idx = headers.indexOf(pk);
+                        const val = data[idx];
+                        return val === '' || val === '\\N' ? `"${pk}" IS NULL` : `"${pk}" = ${escapePg(val)}`;
+                    });
+                    lines.push(`DELETE FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')};`);
+                } else {
+                    // Safe DELETE using PostgreSQL ctid to delete exactly 1 row (safe against duplicate row wipes)
+                    const whereClauses = headers.map((h, i) => {
+                        const val = data[i];
+                        return val === '' || val === '\\N' ? `"${h}" IS NULL` : `"${h}" = ${escapePg(val)}`;
+                    });
+                    lines.push(`DELETE FROM public."${tableName}" WHERE ctid IN (SELECT ctid FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')} LIMIT 1);`);
+                }
+
+            } else if (diffType === 'modified') {
+                // UPDATE: Both have it, some columns changed -> Update Old DB to New DB values
+                const oldData = JSON.parse(tr.getAttribute('data-old-data'));
+                const newData = JSON.parse(tr.getAttribute('data-new-data'));
+                const changedIndices = JSON.parse(tr.getAttribute('data-changed-indices'));
+
+                const setClauses = changedIndices.map(idx => {
+                    const col = headers[idx];
+                    return `"${col}" = ${escapePg(newData[idx])}`;
+                });
+
+                if (pks.length > 0) {
+                    const whereClauses = pks.map(pk => {
+                        const idx = headers.indexOf(pk);
+                        const val = oldData[idx];
+                        return val === '' || val === '\\N' ? `"${pk}" IS NULL` : `"${pk}" = ${escapePg(val)}`;
+                    });
+                    lines.push(`UPDATE public."${tableName}" SET ${setClauses.join(', ')} WHERE ${whereClauses.join(' AND ')};`);
+                } else {
+                    // Fallback for no PK
+                    const whereClauses = headers.map((h, i) => {
+                        const val = oldData[i];
+                        return val === '' || val === '\\N' ? `"${h}" IS NULL` : `"${h}" = ${escapePg(val)}`;
+                    });
+                    lines.push(`UPDATE public."${tableName}" SET ${setClauses.join(', ')} WHERE ctid IN (SELECT ctid FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')} LIMIT 1);`);
+                }
+            }
+        });
+
+        lines.push('\nCOMMIT;\n');
+        return lines.join('\n');
+    };
+
+    // Modal Handling
+    const modal = document.getElementById('sql-modal');
+    const sqlCodeBlock = document.getElementById('sql-code-block');
+
+    document.getElementById('btn-preview-sql').addEventListener('click', () => {
+        const sql = generateSql();
+        sqlCodeBlock.textContent = sql;
+        modal.style.display = 'flex';
+    });
+
+    document.getElementById('modal-close').addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    // Copy SQL
+    const copySqlToClipboard = () => {
+        const sql = generateSql();
+        navigator.clipboard.writeText(sql).then(() => {
+            showToast('PostgreSQL 腳本已複製至剪貼簿！');
+        }).catch(err => {
+            console.error('Copy failed:', err);
+            showToast('複製失敗，請手動複製');
+        });
+    };
+
+    document.getElementById('btn-copy-sql').addEventListener('click', copySqlToClipboard);
+    document.getElementById('modal-copy-btn').addEventListener('click', copySqlToClipboard);
+
+    // Download SQL
+    const downloadSqlFile = () => {
+        const sql = generateSql();
+        const blob = new Blob([sql], { type: 'text/sql;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `migration_sync_${new Date().toISOString().slice(0,10)}.sql`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('已開始下載 .sql 檔案！');
+    };
+
+    document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
+    document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
+
+    // Table Sorting
+    document.querySelectorAll('.diff-table, .identical-table').forEach(table => {
+        const headers = table.querySelectorAll('th:not(.th-checkbox)');
+        const tbody = table.querySelector('tbody');
+        
+        headers.forEach((header) => {
+            header.addEventListener('click', () => {
+                const index = Array.from(header.parentElement.children).indexOf(header);
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const isAscending = header.getAttribute('data-sort') === 'asc';
+                const direction = isAscending ? -1 : 1;
+                
+                headers.forEach(h => h.setAttribute('data-sort', 'none'));
+                header.setAttribute('data-sort', isAscending ? 'desc' : 'asc');
+                
+                headers.forEach(h => {
+                    let text = h.innerText.replace(/ [↑↓]$/, '');
+                    if (h.getAttribute('data-sort') === 'asc') text += ' ↑';
+                    if (h.getAttribute('data-sort') === 'desc') text += ' ↓';
+                    h.innerText = text;
+                });
+                
+                rows.sort((a, b) => {
+                    const aCell = a.children[index];
+                    const bCell = b.children[index];
+                    if (!aCell || !bCell) return 0;
+                    const aText = aCell.textContent.trim();
+                    const bText = bCell.textContent.trim();
+                    
+                    const aNum = parseFloat(aText);
+                    const bNum = parseFloat(bText);
+                    if (!isNaN(aNum) && !isNaN(bNum) && aNum.toString() === aText && bNum.toString() === bText) {
+                        return (aNum - bNum) * direction;
+                    }
+                    return aText.localeCompare(bText) * direction;
+                });
+                
+                tbody.append(...rows);
+            });
+        });
+    });
+});
