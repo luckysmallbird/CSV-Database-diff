@@ -37,7 +37,12 @@
             <div class="toc-header-bar">
                 <div class="toc-title">
                     <strong>快速跳轉</strong>
-                    <span style="font-size: 13px; color: #5f6368; font-weight: normal;">（有變更 <%= changedReports.length %> 表，完全相同 <%= identicalReports.length %> 表）</span>
+                    <span class="toc-summary-text">（有變更 <%= changedReports.length %> 表，完全相同 <%= identicalReports.length %> 表）</span>
+                    <% if (identicalReports.length > 0) { %>
+                        <button class="btn-toggle-identical-toc" id="btn-toggle-identical-toc" type="button">
+                            完全相同表格 (<%= identicalReports.length %>) <span class="toc-arrow">▾</span>
+                        </button>
+                    <% } %>
                 </div>
                 <div class="toc-actions">
                     <button class="btn-action" id="btn-toggle-only-checked">只顯示已勾選項目</button>
@@ -59,20 +64,14 @@
                 </div>
 
                 <% if (identicalReports.length > 0) { %>
-                    <details class="toc-identical-details">
-                        <summary class="toc-identical-summary">
-                            <span class="toc-summary-arrow">▾</span>
-                            <span>完全相同表格 (<%= identicalReports.length %>)</span>
-                        </summary>
-                        <div class="toc-identical-links">
-                            <% identicalReports.forEach(function(report) { %>
-                                <a class="toc-link toc-link-identical" href="#table-<%= report.filename %>">
-                                    <%= report.filename %>
-                                    <span class="toc-badge-count">(0 變更)</span>
-                                </a>
-                            <% }); %>
-                        </div>
-                    </details>
+                    <div class="toc-identical-links-container" id="toc-identical-links-container" style="display: none;">
+                        <% identicalReports.forEach(function(report) { %>
+                            <a class="toc-link toc-link-identical" href="#table-<%= report.filename %>">
+                                <%= report.filename %>
+                                <span class="toc-badge-count">(0 變更)</span>
+                            </a>
+                        <% }); %>
+                    </div>
                 <% } %>
             </div>
         </div>
@@ -99,11 +98,20 @@
                             <span class="badge-identical-tag" title="此資料表兩邊資料庫內容完全一致，無任何差異">兩邊資料庫完全一致</span>
                         <% } %>
                     </h2>
-                    <div style="font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 8px;">
-                        <% if (report.addedCount > 0) { %><span class="badge-added">+ <%= report.addedCount %> 新增</span><% } %>
-                        <% if (report.removedCount > 0) { %><span class="badge-removed">- <%= report.removedCount %> 刪除</span><% } %>
-                        <% if (report.modifiedCount > 0) { %><span class="badge-modified">~ <%= report.modifiedCount %> 修改</span><% } %>
-                        <span class="badge-identical" title="兩邊資料庫內容完全一致，預設收合於下方"><%= report.identicalCount %> 筆相同</span>
+                    <div class="table-header-right" onclick="event.stopPropagation()">
+                        <% if (report.diffs.length > 0) { %>
+                            <div class="search-box">
+                                <input type="text" class="table-search-input" placeholder="過濾關鍵字 (支援模糊搜尋)...">
+                                <button class="search-clear-btn" title="清除搜尋">&times;</button>
+                            </div>
+                            <span class="table-count-label">差異共 <%= report.diffs.length %> 筆</span>
+                        <% } %>
+                        <div class="table-badges">
+                            <% if (report.addedCount > 0) { %><span class="badge-added">+ <%= report.addedCount %> 新增</span><% } %>
+                            <% if (report.removedCount > 0) { %><span class="badge-removed">- <%= report.removedCount %> 刪除</span><% } %>
+                            <% if (report.modifiedCount > 0) { %><span class="badge-modified">~ <%= report.modifiedCount %> 修改</span><% } %>
+                            <span class="badge-identical" title="兩邊資料庫內容完全一致，預設收合於下方"><%= report.identicalCount %> 筆相同</span>
+                        </div>
                     </div>
                 </div>
 
@@ -117,13 +125,6 @@
                                 <% if (report.modifiedCount > 0) { %><button class="btn-mini btn-select-table-mod">只選修改 (~)</button><% } %>
                                 <% if (report.removedCount > 0) { %><button class="btn-mini btn-select-table-rem">只選刪除 (-)</button><% } %>
                                 <button class="btn-mini btn-select-table-none">清空</button>
-                            </div>
-                            <div class="card-toolbar-right">
-                                <div class="search-box">
-                                    <input type="text" class="table-search-input" placeholder="過濾關鍵字 (支援模糊搜尋)...">
-                                    <button class="search-clear-btn" title="清除搜尋">&times;</button>
-                                </div>
-                                <span class="table-count-label">差異共 <%= report.diffs.length %> 筆</span>
                             </div>
                         </div>
 

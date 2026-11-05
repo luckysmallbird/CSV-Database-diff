@@ -11,7 +11,52 @@ function toggleIdentical(el) {
     }
 }
 
+// Toggle unchecked section (in snapshot)
+function toggleUnchecked(el) {
+    const content = el.nextElementSibling;
+    const arrow = el.querySelector('.arrow-icon');
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        arrow.textContent = '▶';
+    } else {
+        content.style.display = 'block';
+        arrow.textContent = '▼';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Toggle identical tables in TOC
+    const btnToggleIdenticalToc = document.getElementById('btn-toggle-identical-toc');
+    const containerIdenticalToc = document.getElementById('toc-identical-links-container');
+    if (btnToggleIdenticalToc && containerIdenticalToc) {
+        btnToggleIdenticalToc.addEventListener('click', () => {
+            const isHidden = containerIdenticalToc.style.display === 'none';
+            containerIdenticalToc.style.display = isHidden ? 'flex' : 'none';
+            btnToggleIdenticalToc.classList.toggle('active', isHidden);
+            const arrow = btnToggleIdenticalToc.querySelector('.toc-arrow');
+            if (arrow) arrow.textContent = isHidden ? '▴' : '▾';
+        });
+    }
+
+    // Toggle all unchecked rows (in snapshot)
+    const btnToggleAllUnchecked = document.getElementById('btn-toggle-all-unchecked');
+    let allUncheckedOpen = false;
+    if (btnToggleAllUnchecked) {
+        btnToggleAllUnchecked.addEventListener('click', () => {
+            allUncheckedOpen = !allUncheckedOpen;
+            document.querySelectorAll('.unchecked-section').forEach(sec => {
+                const content = sec.querySelector('.unchecked-content');
+                const arrow = sec.querySelector('.arrow-icon');
+                if (content && arrow) {
+                    content.style.display = allUncheckedOpen ? 'block' : 'none';
+                    arrow.textContent = allUncheckedOpen ? '▼' : '▶';
+                }
+            });
+            btnToggleAllUnchecked.classList.toggle('active', allUncheckedOpen);
+            btnToggleAllUnchecked.textContent = allUncheckedOpen ? '一鍵收合所有未勾選' : '一鍵展開所有未勾選';
+        });
+    }
+
     // Expand / Collapse All
     const btnExpandAll = document.getElementById('btn-expand-all');
     const btnCollapseAll = document.getElementById('btn-collapse-all');
@@ -358,23 +403,120 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. Clone the current document element
             const clone = document.documentElement.cloneNode(true);
 
-            // 3. Add an audit banner inside the cloned document summary
+            // 3. Clean up editing toolbars and floating action bar for pure read-only view
+            // Remove single-table selection toolbars
+            clone.querySelectorAll('.card-toolbar').forEach(el => el.remove());
+            // Remove floating SQL bar and modal overlay
+            clone.querySelectorAll('.sql-bar, .modal-overlay').forEach(el => el.remove());
+            // Remove selection buttons from TOC, keep view controls
+            ['btn-toggle-only-checked', 'btn-select-all-diffs', 'btn-clear-all-diffs'].forEach(id => {
+                const btn = clone.querySelector('#' + id);
+                if (btn) btn.remove();
+            });
+
+            // 4. Make all checkboxes read-only (disabled) in snapshot, retaining clean appearance
+            clone.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.setAttribute('disabled', 'disabled');
+                cb.style.pointerEvents = 'none';
+                cb.style.cursor = 'default';
+            });
+
+            // 5. Add audit banner with pure black text
             const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
             const summaryDiv = clone.querySelector('.summary');
             if (summaryDiv) {
-                const banner = document.createElement('div');
-                banner.style.cssText = 'background: #e8f0fe; color: #1967d2; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-top: 12px; font-weight: 500; border-left: 4px solid #1a73e8;';
-                banner.innerHTML = `勾選紀錄存檔版本 ｜ 已選取 <strong>${checkedCount}</strong> 筆差異列 ｜ 存檔時間：${new Date().toLocaleString()}`;
+                const banner = document.createElement('p');
+                banner.style.cssText = 'color: #202124; margin-top: 10px; font-size: 13px; font-weight: normal; border-top: 1px solid #edf0f2; padding-top: 8px;';
+                banner.innerHTML = `<strong>勾選紀錄存檔版本</strong> ｜ 已選取 <strong>${checkedCount}</strong> 筆差異列 ｜ 存檔時間：${new Date().toLocaleString()}`;
                 summaryDiv.appendChild(banner);
             }
 
-            // 4. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
+            // 6. Fold unchecked rows in diff tables
+            let totalUncheckedCount = 0;
+            clone.querySelectorAll('.table-card').forEach(card => {
+                const diffTable = card.querySelector('.diff-table');
+                if (!diffTable) return;
+
+                const thead = diffTable.querySelector('thead');
+                const tbody = diffTable.querySelector('tbody');
+                if (!tbody) return;
+
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const uncheckedRows = rows.filter(tr => {
+                    const cb = tr.querySelector('.row-checkbox');
+                    return cb && !cb.hasAttribute('checked');
+                });
+                const checkedRows = rows.filter(tr => {
+                    const cb = tr.querySelector('.row-checkbox');
+                    return cb && cb.hasAttribute('checked');
+                });
+
+                totalUncheckedCount += uncheckedRows.length;
+
+                if (uncheckedRows.length > 0) {
+                    const uncheckedSection = document.createElement('div');
+                    uncheckedSection.className = 'unchecked-section';
+
+                    const toggle = document.createElement('div');
+                    toggle.className = 'unchecked-toggle';
+                    toggle.setAttribute('onclick', 'toggleUnchecked(this)');
+                    toggle.innerHTML = `<span class="arrow-icon">▶</span><span>未勾選項目（${uncheckedRows.length} 筆）- 點此展開核對</span>`;
+
+                    const content = document.createElement('div');
+                    content.className = 'unchecked-content';
+                    content.style.display = 'none';
+
+                    const newTable = document.createElement('table');
+                    newTable.className = 'diff-table';
+                    if (thead) newTable.appendChild(thead.cloneNode(true));
+
+                    const newTbody = document.createElement('tbody');
+                    uncheckedRows.forEach(tr => {
+                        tr.remove();
+                        newTbody.appendChild(tr);
+                    });
+                    newTable.appendChild(newTbody);
+                    content.appendChild(newTable);
+
+                    uncheckedSection.appendChild(toggle);
+                    uncheckedSection.appendChild(content);
+
+                    const body = card.querySelector('.table-card-body');
+                    const identicalSection = card.querySelector('.identical-section');
+                    if (identicalSection) {
+                        body.insertBefore(uncheckedSection, identicalSection);
+                    } else if (body) {
+                        body.appendChild(uncheckedSection);
+                    }
+
+                    if (checkedRows.length === 0) {
+                        const colCount = thead ? thead.querySelectorAll('th').length : 10;
+                        const emptyTr = document.createElement('tr');
+                        emptyTr.innerHTML = `<td colspan="${colCount}" style="text-align: center; color: #5f6368; padding: 14px; font-size: 13px;">本表格未勾選任何項目（共 ${uncheckedRows.length} 筆差異未勾選，可展開下方核對）</td>`;
+                        tbody.appendChild(emptyTr);
+                    }
+                }
+            });
+
+            // 7. Add "一鍵展開未勾選項目" button to TOC in snapshot
+            if (totalUncheckedCount > 0) {
+                const tocActions = clone.querySelector('.toc-actions');
+                if (tocActions) {
+                    const btnToggleAllUnchecked = document.createElement('button');
+                    btnToggleAllUnchecked.className = 'btn-action';
+                    btnToggleAllUnchecked.id = 'btn-toggle-all-unchecked';
+                    btnToggleAllUnchecked.textContent = `一鍵展開所有未勾選 (${totalUncheckedCount})`;
+                    tocActions.appendChild(btnToggleAllUnchecked);
+                }
+            }
+
+            // 8. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
             const oldTarget = document.body.getAttribute('data-old-target') || 'old';
             const newSource = document.body.getAttribute('data-new-source') || 'new';
             const timeStr = getFormattedTime();
             const exportFileName = `資料庫比對_舊版${oldTarget}_新版${newSource}_${timeStr}.html`;
 
-            // 5. Trigger download
+            // 9. Trigger download
             const fullHtml = '<!DOCTYPE html>\n<html lang="zh-Hant">\n' + clone.innerHTML + '\n</html>';
             const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
