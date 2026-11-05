@@ -90,9 +90,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Row Checkbox change
+    // Track last clicked checkbox per table for Shift + click range selection
+    const lastClickedCheckboxMap = new WeakMap();
+
+    // Row Checkbox change and Shift+Click range selection
     document.querySelectorAll('.row-checkbox').forEach(cb => {
-        cb.addEventListener('change', () => {
+        cb.addEventListener('click', (e) => {
+            const table = cb.closest('table');
+            if (table) {
+                const lastClicked = lastClickedCheckboxMap.get(table);
+
+                // If Shift key is pressed and we have a previous anchor within the same table
+                if (e.shiftKey && lastClicked && lastClicked !== cb) {
+                    // Get all currently VISIBLE row checkboxes in current DOM order (respecting sorting and search filters)
+                    const visibleCheckboxes = Array.from(table.querySelectorAll('.row-checkbox')).filter(item => {
+                        const tr = item.closest('tr');
+                        return tr && tr.style.display !== 'none';
+                    });
+
+                    const startIdx = visibleCheckboxes.indexOf(lastClicked);
+                    const endIdx = visibleCheckboxes.indexOf(cb);
+
+                    if (startIdx !== -1 && endIdx !== -1) {
+                        const minIdx = Math.min(startIdx, endIdx);
+                        const maxIdx = Math.max(startIdx, endIdx);
+                        const targetCheckedState = cb.checked;
+
+                        for (let i = minIdx; i <= maxIdx; i++) {
+                            visibleCheckboxes[i].checked = targetCheckedState;
+                        }
+                    }
+                }
+
+                // Update the last clicked checkbox for this table
+                lastClickedCheckboxMap.set(table, cb);
+            }
+
             updateSelectedCount();
         });
     });
