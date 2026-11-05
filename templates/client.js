@@ -273,13 +273,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return '-- 尚未勾選任何差異列。\n-- 請在上方勾選欲同步的列後，再次產生 SQL。';
         }
 
+        const oldTarget = document.body.getAttribute('data-old-target') || 'OldDB';
+        const newSource = document.body.getAttribute('data-new-source') || 'NewDB';
+
         const lines = [];
-        lines.push('-- =========================================================');
-        lines.push('-- PostgreSQL Database Synchronization Script');
-        lines.push('-- Target: Synchronize Old DB to match New DB');
-        lines.push(`-- Generated: ${new Date().toLocaleString()}`);
-        lines.push(`-- Total Selected Operations: ${checkedRows.length}`);
-        lines.push('-- =========================================================\n');
+        lines.push('-- ==============================================================================');
+        lines.push('-- PostgreSQL 資料庫資料同步腳本');
+        lines.push(`-- 舊版資料庫 (目標 Target): ${oldTarget}`);
+        lines.push(`-- 新版資料庫 (來源 Source): ${newSource}`);
+        lines.push(`-- 產生時間: ${new Date().toLocaleString()}`);
+        lines.push(`-- 本次選取同步筆數: ${checkedRows.length} 筆`);
+        lines.push('-- ==============================================================================\n');
         lines.push('BEGIN;\n');
 
         let currentTable = null;
@@ -296,7 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (tableName !== currentTable) {
                 currentTable = tableName;
-                lines.push(`-- Table: public."${tableName}"`);
+                lines.push(`\n-- ------------------------------------------------------------------------------`);
+                lines.push(`-- 資料表: public."${tableName}"`);
+                lines.push(`-- ------------------------------------------------------------------------------`);
             }
 
             if (diffType === 'added') {
@@ -390,24 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-copy-sql').addEventListener('click', copySqlToClipboard);
     document.getElementById('modal-copy-btn').addEventListener('click', copySqlToClipboard);
 
-    // Download SQL
-    const downloadSqlFile = () => {
-        const sql = generateSql();
-        const blob = new Blob([sql], { type: 'text/sql;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `migration_sync_${new Date().toISOString().slice(0,10)}.sql`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('已開始下載 .sql 檔案！');
-    };
-
-    document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
-    document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
-
     // Format current timestamp as YYYYMMDD_HHmmss
     const getFormattedTime = () => {
         const now = new Date();
@@ -419,6 +407,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const ss = String(now.getSeconds()).padStart(2, '0');
         return `${y}${m}${d}_${hh}${mm}${ss}`;
     };
+
+    // Download SQL
+    const downloadSqlFile = () => {
+        const sql = generateSql();
+        const blob = new Blob([sql], { type: 'text/sql;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const oldTarget = document.body.getAttribute('data-old-target') || 'old';
+        const timeStr = getFormattedTime();
+        const exportFileName = `修正${oldTarget}_${timeStr}.sql`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = exportFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(`已開始下載 SQL 檔案：${exportFileName}`);
+    };
+
+    document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
+    document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
 
     // Export Checked Snapshot HTML
     const btnExportSnapshot = document.getElementById('btn-export-snapshot');
@@ -493,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const toggle = document.createElement('div');
                     toggle.className = 'unchecked-toggle';
                     toggle.setAttribute('onclick', 'toggleUnchecked(this)');
-                    toggle.innerHTML = `<span class="arrow-icon">▶</span><span>未勾選項目（${uncheckedRows.length} 筆）- 點此展開核對</span>`;
+                    toggle.innerHTML = `<span class="arrow-icon">▶</span><span>未勾選項目（${uncheckedRows.length} 筆）</span>`;
 
                     const content = document.createElement('div');
                     content.className = 'unchecked-content';
