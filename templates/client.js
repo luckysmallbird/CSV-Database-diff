@@ -523,15 +523,78 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (checkedRows.length === 0) {
-                        const colCount = thead ? thead.querySelectorAll('th').length : 10;
-                        const emptyTr = document.createElement('tr');
-                        emptyTr.innerHTML = `<td colspan="${colCount}" style="text-align: center; color: #5f6368; padding: 14px; font-size: 13px;">本表格未勾選任何項目（共 ${uncheckedRows.length} 筆差異未勾選，可展開下方核對）</td>`;
-                        tbody.appendChild(emptyTr);
+                        // Remove diff table completely if no rows were checked, reducing vertical clutter
+                        const wrapper = diffTable.closest('.table-responsive');
+                        if (wrapper) {
+                            wrapper.remove();
+                        } else {
+                            diffTable.remove();
+                        }
+                        // Default to collapsed for clean review
+                        card.classList.add('collapsed');
                     }
                 }
             });
 
-            // 7. Add "一鍵展開未勾選項目" button to TOC in snapshot
+            // 7. Sort cards in snapshot:
+            // Group 1: Tables with checked rows (alphabetical by filename)
+            // Group 2: Tables with diffs but 0 checked rows (alphabetical by filename)
+            // Group 3: Tables with 0 diffs / identical (alphabetical by filename)
+            const cards = Array.from(clone.querySelectorAll('.table-card'));
+            cards.sort((a, b) => {
+                const aChecked = a.querySelectorAll('.row-checkbox[checked]').length;
+                const bChecked = b.querySelectorAll('.row-checkbox[checked]').length;
+                const aHasChecked = aChecked > 0 ? 1 : 0;
+                const bHasChecked = bChecked > 0 ? 1 : 0;
+
+                if (aHasChecked !== bHasChecked) {
+                    return bHasChecked - aHasChecked;
+                }
+
+                const aIdentical = a.classList.contains('table-card-identical') ? 1 : 0;
+                const bIdentical = b.classList.contains('table-card-identical') ? 1 : 0;
+                if (aIdentical !== bIdentical) {
+                    return aIdentical - bIdentical;
+                }
+
+                const aFile = a.getAttribute('data-filename') || '';
+                const bFile = b.getAttribute('data-filename') || '';
+                return aFile.localeCompare(bFile);
+            });
+
+            const firstCard = clone.querySelector('.table-card');
+            if (firstCard && firstCard.parentNode) {
+                const parent = firstCard.parentNode;
+                cards.forEach(card => parent.appendChild(card));
+            }
+
+            // 8. Re-order and update TOC links in snapshot based on the new card order
+            const tocChangedLinksContainer = clone.querySelector('.toc-changed-links');
+            if (tocChangedLinksContainer) {
+                tocChangedLinksContainer.innerHTML = '';
+                const diffCards = cards.filter(c => !c.classList.contains('table-card-identical'));
+                diffCards.forEach(card => {
+                    const filename = card.getAttribute('data-filename');
+                    const checkedInCard = card.querySelectorAll('.row-checkbox[checked]').length;
+                    const uncheckedInCard = card.querySelectorAll('.unchecked-content .row-checkbox').length;
+
+                    const a = document.createElement('a');
+                    a.className = 'toc-link';
+                    a.href = '#table-' + filename;
+
+                    if (checkedInCard > 0) {
+                        a.innerHTML = `${filename} <span class="toc-badge-count">(已選 ${checkedInCard} 筆${uncheckedInCard > 0 ? ` / 未選 ${uncheckedInCard}` : ''})</span>`;
+                    } else {
+                        a.className += ' toc-link-unchecked';
+                        a.style.background = '#f1f3f4';
+                        a.style.color = '#5f6368';
+                        a.innerHTML = `${filename} <span class="toc-badge-count">(未選 ${uncheckedInCard} 筆)</span>`;
+                    }
+                    tocChangedLinksContainer.appendChild(a);
+                });
+            }
+
+            // 9. Add "一鍵展開未勾選項目" button to TOC in snapshot
             if (totalUncheckedCount > 0) {
                 const tocActions = clone.querySelector('.toc-actions');
                 if (tocActions) {
@@ -543,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 8. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
+            // 10. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
             const oldTarget = document.body.getAttribute('data-old-target') || 'old';
             const newSource = document.body.getAttribute('data-new-source') || 'new';
             const timeStr = getFormattedTime();

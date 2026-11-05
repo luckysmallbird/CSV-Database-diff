@@ -2,70 +2,80 @@ body {
     font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
     background-color: #f8f9fa;
     color: #202124;
+    font-size: 13px;
+    line-height: 1.5;
     margin: 0;
     padding: 20px 40px 100px 40px;
 }
 h1 {
-    font-weight: 400;
+    font-size: 22px;
+    font-weight: 500;
     color: #1a73e8;
     margin-bottom: 8px;
 }
 .subtitle {
     color: #5f6368;
-    font-size: 14px;
+    font-size: 13px;
     margin-top: 0;
     margin-bottom: 20px;
 }
 .summary {
     background: #fff;
-    padding: 16px 24px;
+    padding: 16px 20px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     margin-bottom: 24px;
+    font-size: 13px;
 }
 .summary p {
     margin: 6px 0;
+    font-size: 13px;
+    line-height: 1.6;
 }
 .summary span {
     margin-right: 15px;
-    font-size: 14px;
+    font-size: 13px;
 }
 .badge-added { 
     background-color: #e6f4ea; 
     color: #137333; 
-    padding: 4px 8px; 
+    padding: 2px 8px; 
     border-radius: 4px; 
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 500;
     display: inline-block;
 }
 .badge-removed { 
     background-color: #fce8e6; 
     color: #c5221f; 
-    padding: 4px 8px; 
+    padding: 2px 8px; 
     border-radius: 4px; 
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 500;
     display: inline-block;
 }
 .badge-modified {
     background-color: #fef7e0;
     color: #b06000;
-    padding: 4px 8px;
+    padding: 2px 8px;
     border-radius: 4px;
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 500;
     display: inline-block;
 }
 .badge-identical {
     background-color: #f1f3f4;
     color: #5f6368;
-    padding: 4px 8px;
+    padding: 2px 8px;
     border-radius: 4px;
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 500;
     display: inline-block;
 }
 .badge-pk {
     background-color: #e8f0fe;
     color: #1967d2;
-    padding: 3px 8px;
+    padding: 2px 8px;
     border-radius: 4px;
     font-size: 12px;
     font-weight: 500;
@@ -95,10 +105,10 @@ h1 {
     color: #5f6368;
     border: 1px solid #dadce0;
     font-size: 12px;
-    padding: 3px 10px;
-    border-radius: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
     font-weight: 500;
-    margin-left: 10px;
+    margin-left: 8px;
     display: inline-block;
     vertical-align: middle;
 }
@@ -122,7 +132,8 @@ h1 {
     gap: 12px;
 }
 .toc-title {
-    font-size: 15px;
+    font-size: 14px;
+    font-weight: bold;
     color: #202124;
     display: flex;
     align-items: center;
@@ -130,7 +141,7 @@ h1 {
     flex-wrap: wrap;
 }
 .toc-summary-text {
-    font-size: 13px;
+    font-size: 12px;
     color: #5f6368;
     font-weight: normal;
 }
@@ -272,12 +283,12 @@ h1 {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: normal;
 }
 .table-header h2 {
     margin: 0;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 500;
     display: flex;
     align-items: center;
@@ -478,7 +489,7 @@ th:hover {
 }
 .identical-table {
     color: #80868b;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .unchecked-section {
@@ -527,7 +538,7 @@ input[type="checkbox"]:disabled {
     align-items: center;
     gap: 16px;
     z-index: 1000;
-    font-size: 14px;
+    font-size: 13px;
     flex-wrap: wrap;
     opacity: 0.3;
     backdrop-filter: blur(6px);
@@ -540,10 +551,11 @@ input[type="checkbox"]:disabled {
 .sql-bar-counter {
     font-weight: 500;
     white-space: nowrap;
+    font-size: 13px;
 }
 .sql-bar-counter strong {
     color: #8ab4f8;
-    font-size: 16px;
+    font-size: 15px;
 }
 .sql-bar-btns {
     display: flex;
