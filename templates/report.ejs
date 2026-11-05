@@ -8,30 +8,30 @@
         <%- customCss %>
     </style>
 </head>
-<body>
+<body data-old-target="<%= oldVersionName %>" data-new-source="<%= newVersionName %>">
 
     <h1>Database Migration Diff & SQL Sync</h1>
     <div class="subtitle">比對 Old（舊版）與 New（新版）CSV 資料，勾選差異列即可產生讓舊資料庫同步至新資料庫的 PostgreSQL 語法。</div>
     
     <div class="summary">
         <p>
-            <strong>Old Target:</strong> <%= oldVersionName %> &nbsp;|&nbsp; 
-            <strong>New Source:</strong> <%= newVersionName %> &nbsp;|&nbsp; 
-            <strong>Generated on:</strong> <%= date %>
+            <strong>舊版資料夾 (Old Target):</strong> <%= oldVersionName %> &nbsp;|&nbsp; 
+            <strong>新版資料夾 (New Source):</strong> <%= newVersionName %> &nbsp;|&nbsp; 
+            <strong>產生時間:</strong> <%= date %>
         </p>
         <p>
-            <span><strong>Changed Tables:</strong> <%= totalChangedTables %> / <%= reports.length %></span>
-            <span class="badge-added">+ <%= totalAdded %> Added</span>
-            <span class="badge-removed">- <%= totalRemoved %> Removed</span>
-            <span class="badge-modified">~ <%= totalModified %> Modified</span>
-            <span class="badge-identical">= <%= totalIdentical %> Identical</span>
+            <span><strong>異動表格數:</strong> <%= totalChangedTables %> / <%= reports.length %></span>
+            <span class="badge-added">+ <%= totalAdded %> 新增</span>
+            <span class="badge-removed">- <%= totalRemoved %> 刪除</span>
+            <span class="badge-modified">~ <%= totalModified %> 修改</span>
+            <span class="badge-identical" title="兩邊資料庫完全相同的筆數，預設折疊於各表格底部"><%= totalIdentical %> 筆相同</span>
         </p>
     </div>
 
     <% if (reports.length > 0) { %>
         <div class="toc-container">
             <div class="toc-links">
-                <strong>Jump to:</strong><br>
+                <strong>快速跳轉：</strong><br>
                 <% reports.forEach(function(report) { %>
                     <a class="toc-link" href="#table-<%= report.filename %>">
                         <%= report.filename %> 
@@ -40,6 +40,7 @@
                 <% }); %>
             </div>
             <div class="toc-actions">
+                <button class="btn-action" id="btn-toggle-only-checked">只顯示已勾選項目</button>
                 <button class="btn-action" id="btn-select-all-diffs">全選所有變更</button>
                 <button class="btn-action" id="btn-clear-all-diffs">清除所有勾選</button>
                 <button class="btn-action" id="btn-expand-all">全展開</button>
@@ -60,20 +61,17 @@
                             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                         </svg>
                         <%= report.filename %>
-                        <% if (report.tableName !== report.filename.replace(/\.csv$/i, '')) { %>
-                            <span class="table-realname">(SQL: public."<%= report.tableName %>")</span>
-                        <% } %>
                         <% if (report.primaryKeys && report.primaryKeys.length > 0) { %>
                             <span class="badge-pk" title="Primary Key 依據 schema.sql 自動解析">PK: <%= report.primaryKeys.join(', ') %></span>
                         <% } else { %>
-                            <span class="badge-pk" style="background-color: #f1f3f4; color: #5f6368;" title="無明確主鍵，以 ctid LIMIT 1 安全模式處理">無主鍵模式</span>
+                            <span class="badge-pk badge-no-pk" title="此資料表未設定唯一主鍵。系統採用全欄位比對；刪除時採取安全去重模式（精確只刪除 1 筆重複項，避免整批誤刪）；新增時則插入全部欄位。">No Primary Key</span>
                         <% } %>
                     </h2>
-                    <div style="font-size: 14px; font-weight: bold;">
-                        <% if (report.addedCount > 0) { %><span class="badge-added" style="margin-right: 8px;">+ <%= report.addedCount %></span><% } %>
-                        <% if (report.removedCount > 0) { %><span class="badge-removed" style="margin-right: 8px;">- <%= report.removedCount %></span><% } %>
-                        <% if (report.modifiedCount > 0) { %><span class="badge-modified" style="margin-right: 8px;">~ <%= report.modifiedCount %></span><% } %>
-                        <span class="badge-identical">= <%= report.identicalCount %></span>
+                    <div style="font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                        <% if (report.addedCount > 0) { %><span class="badge-added">+ <%= report.addedCount %> 新增</span><% } %>
+                        <% if (report.removedCount > 0) { %><span class="badge-removed">- <%= report.removedCount %> 刪除</span><% } %>
+                        <% if (report.modifiedCount > 0) { %><span class="badge-modified">~ <%= report.modifiedCount %> 修改</span><% } %>
+                        <span class="badge-identical" title="兩邊資料庫內容完全一致，預設收合於下方"><%= report.identicalCount %> 筆相同</span>
                     </div>
                 </div>
 
@@ -208,6 +206,7 @@
             <button class="btn-sql" id="btn-preview-sql">預覽 PostgreSQL 腳本</button>
             <button class="btn-sql-secondary" id="btn-copy-sql">複製 SQL</button>
             <button class="btn-sql-secondary" id="btn-download-sql">下載 .sql</button>
+            <button class="btn-sql-secondary" id="btn-export-snapshot" title="將目前的勾選結果凍結儲存為獨立 HTML 檔">另存勾選紀錄 HTML</button>
         </div>
     </div>
 

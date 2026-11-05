@@ -70,6 +70,33 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSelectedCount();
     });
 
+    // Toggle: Show only checked rows
+    const btnToggleOnlyChecked = document.getElementById('btn-toggle-only-checked');
+    let isFilterOnlyChecked = false;
+    if (btnToggleOnlyChecked) {
+        btnToggleOnlyChecked.addEventListener('click', () => {
+            isFilterOnlyChecked = !isFilterOnlyChecked;
+            if (isFilterOnlyChecked) {
+                btnToggleOnlyChecked.classList.add('active');
+                btnToggleOnlyChecked.textContent = '顯示全部項目';
+                document.querySelectorAll('.diff-table tbody tr').forEach(tr => {
+                    const cb = tr.querySelector('.row-checkbox');
+                    if (cb && cb.checked) {
+                        tr.style.display = '';
+                    } else {
+                        tr.style.display = 'none';
+                    }
+                });
+            } else {
+                btnToggleOnlyChecked.classList.remove('active');
+                btnToggleOnlyChecked.textContent = '只顯示已勾選項目';
+                document.querySelectorAll('.diff-table tbody tr').forEach(tr => {
+                    tr.style.display = '';
+                });
+            }
+        });
+    }
+
     // Per-table search and filtering
     document.querySelectorAll('.table-card').forEach(card => {
         const searchInput = card.querySelector('.table-search-input');
@@ -86,7 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let visibleCount = 0;
             diffRows.forEach(tr => {
                 const text = tr.textContent.toLowerCase();
-                if (!kw || text.includes(kw)) {
+                const matchesKw = !kw || text.includes(kw);
+                const matchesChecked = !isFilterOnlyChecked || (tr.querySelector('.row-checkbox') && tr.querySelector('.row-checkbox').checked);
+
+                if (matchesKw && matchesChecked) {
                     tr.style.display = '';
                     visibleCount++;
                 } else {
@@ -95,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (countLabel) {
-                if (kw) {
+                if (kw || isFilterOnlyChecked) {
                     countLabel.textContent = `篩選: ${visibleCount} / ${totalDiffs} 筆`;
                 } else {
                     countLabel.textContent = `差異共 ${totalDiffs} 筆`;
@@ -147,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
+        setTimeout(() => toast.classList.remove('show'), 2500);
     };
 
     // PostgreSQL Value Escape
@@ -209,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     lines.push(`DELETE FROM public."${tableName}" WHERE ${whereClauses.join(' AND ')};`);
                 } else {
-                    // Safe DELETE using PostgreSQL ctid to delete exactly 1 row (safe against duplicate row wipes)
+                    // Safe DELETE using PostgreSQL ctid to delete exactly 1 row
                     const whereClauses = headers.map((h, i) => {
                         const val = data[i];
                         return val === '' || val === '\\N' ? `"${h}" IS NULL` : `"${h}" = ${escapePg(val)}`;
@@ -300,6 +330,66 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
     document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
 
+    // Format current timestamp as YYYYMMDD_HHmmss
+    const getFormattedTime = () => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        return `${y}${m}${d}_${hh}${mm}${ss}`;
+    };
+
+    // Export Checked Snapshot HTML
+    const btnExportSnapshot = document.getElementById('btn-export-snapshot');
+    if (btnExportSnapshot) {
+        btnExportSnapshot.addEventListener('click', () => {
+            // 1. Synchronize the current checkbox 'checked' state into DOM attributes
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                if (cb.checked) {
+                    cb.setAttribute('checked', 'checked');
+                } else {
+                    cb.removeAttribute('checked');
+                }
+            });
+
+            // 2. Clone the current document element
+            const clone = document.documentElement.cloneNode(true);
+
+            // 3. Add an audit banner inside the cloned document summary
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const summaryDiv = clone.querySelector('.summary');
+            if (summaryDiv) {
+                const banner = document.createElement('div');
+                banner.style.cssText = 'background: #e8f0fe; color: #1967d2; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-top: 12px; font-weight: 500; border-left: 4px solid #1a73e8;';
+                banner.innerHTML = `勾選紀錄存檔版本 ｜ 已選取 <strong>${checkedCount}</strong> 筆差異列 ｜ 存檔時間：${new Date().toLocaleString()}`;
+                summaryDiv.appendChild(banner);
+            }
+
+            // 4. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
+            const oldTarget = document.body.getAttribute('data-old-target') || 'old';
+            const newSource = document.body.getAttribute('data-new-source') || 'new';
+            const timeStr = getFormattedTime();
+            const exportFileName = `資料庫比對_舊版${oldTarget}_新版${newSource}_${timeStr}.html`;
+
+            // 5. Trigger download
+            const fullHtml = '<!DOCTYPE html>\n<html lang="zh-Hant">\n' + clone.innerHTML + '\n</html>';
+            const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = exportFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`已另存勾選紀錄：${exportFileName}`);
+        });
+    }
+
     // Table Sorting
     document.querySelectorAll('.diff-table, .identical-table').forEach(table => {
         const headers = table.querySelectorAll('th:not(.th-checkbox)');
@@ -341,4 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // Initial count sync
+    updateSelectedCount();
 });

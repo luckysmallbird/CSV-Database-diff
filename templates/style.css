@@ -28,7 +28,7 @@ h1 {
 }
 .summary span {
     margin-right: 15px;
-    font-size: 15px;
+    font-size: 14px;
 }
 .badge-added { 
     background-color: #e6f4ea; 
@@ -71,6 +71,13 @@ h1 {
     font-weight: 500;
     display: inline-block;
     margin-left: 8px;
+    cursor: help;
+}
+.badge-no-pk {
+    background-color: #f1f3f4;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    cursor: help;
 }
 .badge-dedup {
     background-color: #f1f3f4;
@@ -112,6 +119,7 @@ h1 {
 .toc-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 .btn-action {
     background: #fff;
@@ -127,6 +135,11 @@ h1 {
 .btn-action:hover {
     background: #f1f3f4;
     border-color: #c6c6c6;
+}
+.btn-action.active {
+    background: #1a73e8;
+    color: #fff;
+    border-color: #1a73e8;
 }
 
 .table-card {
@@ -157,11 +170,6 @@ h1 {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-.table-realname {
-    color: #5f6368;
-    font-size: 13px;
-    font-weight: normal;
 }
 .chevron {
     transition: transform 0.3s ease;
@@ -374,12 +382,14 @@ th:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     z-index: 1000;
     font-size: 14px;
+    flex-wrap: wrap;
 }
 .sql-bar-counter {
     font-weight: 500;
+    white-space: nowrap;
 }
 .sql-bar-counter strong {
     color: #8ab4f8;
@@ -388,6 +398,7 @@ th:hover {
 .sql-bar-btns {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 .btn-sql {
     background: #8ab4f8;
@@ -399,6 +410,7 @@ th:hover {
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s;
+    white-space: nowrap;
 }
 .btn-sql:hover {
     background: #aecbfa;
@@ -413,6 +425,7 @@ th:hover {
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s;
+    white-space: nowrap;
 }
 .btn-sql-secondary:hover {
     background: #4f5357;
