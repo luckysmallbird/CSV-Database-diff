@@ -121,6 +121,44 @@ h1 {
     margin-bottom: 25px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
+.toc-container.collapsed {
+    padding-bottom: 16px;
+}
+.toc-container.collapsed .toc-header-bar {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.toc-container.collapsed .toc-links-section {
+    display: none !important;
+}
+.toc-toggle-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #202124;
+    font-family: inherit;
+    text-align: left;
+    transition: color 0.15s;
+}
+.toc-toggle-btn:hover strong {
+    color: #1a73e8;
+}
+.toc-toggle-btn:hover .toc-main-arrow {
+    color: #1a73e8;
+}
+.toc-main-arrow {
+    font-size: 13px;
+    color: #5f6368;
+    margin-left: 2px;
+}
 .toc-header-bar {
     display: flex;
     justify-content: space-between;

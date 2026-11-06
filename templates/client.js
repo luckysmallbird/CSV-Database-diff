@@ -11,6 +11,24 @@ function toggleIdentical(el) {
     }
 }
 
+// Toggle main TOC links section
+function toggleMainToc(el) {
+    const container = el.closest('.toc-container');
+    if (!container) return;
+    const linksSection = container.querySelector('.toc-links-section');
+    const arrow = el.querySelector('.toc-main-arrow');
+    const isClosed = container.classList.contains('collapsed') || (linksSection && linksSection.style.display === 'none');
+    if (isClosed) {
+        container.classList.remove('collapsed');
+        if (linksSection) linksSection.style.display = 'flex';
+        if (arrow) arrow.textContent = '▴';
+    } else {
+        container.classList.add('collapsed');
+        if (linksSection) linksSection.style.display = 'none';
+        if (arrow) arrow.textContent = '▾';
+    }
+}
+
 // Toggle unchecked section (in snapshot)
 function toggleUnchecked(el) {
     const content = el.nextElementSibling;
@@ -703,10 +721,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 diffCards.forEach(card => parent.appendChild(card));
             }
 
-            // 10. Update TOC in Snapshot
+            // 10. Update TOC in Snapshot (collapsed by default)
+            const tocContainer = clone.querySelector('.toc-container');
+            if (tocContainer) {
+                tocContainer.classList.add('collapsed');
+                const linksSection = tocContainer.querySelector('.toc-links-section');
+                if (linksSection) linksSection.style.display = 'none';
+            }
+
             const tocTitle = clone.querySelector('.toc-title');
             if (tocTitle) {
-                tocTitle.innerHTML = `<strong>快速跳轉</strong> <span class="toc-summary-text">（預計同步 ${tablesWithCheckedCount} 表，共 ${totalCheckedCount} 筆）</span>`;
+                tocTitle.innerHTML = `
+                    <button class="toc-toggle-btn" id="btn-toggle-main-toc" type="button" onclick="toggleMainToc(this)" title="點擊展開/收合快速跳轉">
+                        <strong>快速跳轉</strong>
+                        <span class="toc-summary-text">（預計同步 ${tablesWithCheckedCount} 表，共 ${totalCheckedCount} 筆）</span>
+                        <span class="toc-main-arrow">▾</span>
+                    </button>
+                `;
             }
 
             const tocChangedLinksContainer = clone.querySelector('.toc-changed-links');
