@@ -637,8 +637,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cardCheckedTotal > 0) {
                         let badgeHtml = '';
                         if (cardCheckedAdded > 0) badgeHtml += `<span class="badge-added">+ 預計新增 ${cardCheckedAdded}</span> `;
+                        if (cardCheckedModified > 0) badgeHtml += `<span class="badge-modified">~ 預計更新 ${cardCheckedModified}</span> `;
                         if (cardCheckedRemoved > 0) badgeHtml += `<span class="badge-removed">- 預計刪除 ${cardCheckedRemoved}</span> `;
-                        if (cardCheckedModified > 0) badgeHtml += `<span class="badge-modified">~ 預計修改 ${cardCheckedModified}</span> `;
                         badgesContainer.innerHTML = badgeHtml;
                     } else {
                         badgesContainer.innerHTML = '<span class="badge-identical-tag" style="color: #5f6368; background: #f1f3f4; border: 1px solid #dadce0;">本次略過（未選取）</span>';
@@ -672,10 +672,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </p>
         <p>
             <span><strong>預計同步表格數:</strong> ${tablesWithCheckedCount} / ${diffCards.length}</span>
+            <span style="font-weight: 500; color: #202124; margin-right: 15px;">總計 ${totalCheckedCount} 筆</span>
             <span class="badge-added">+ 預計新增 ${totalCheckedAdded}</span>
+            <span class="badge-modified">~ 預計更新 ${totalCheckedModified}</span>
             <span class="badge-removed">- 預計刪除 ${totalCheckedRemoved}</span>
-            <span class="badge-modified">~ 預計修改 ${totalCheckedModified}</span>
-            <span style="color: #5f6368; font-size: 12px; margin-left: 8px;">（原始比對總差異共 ${totalRawDiffsCount} 筆，未選取略過 ${totalUncheckedCount} 筆）</span>
         </p>`;
             }
 
