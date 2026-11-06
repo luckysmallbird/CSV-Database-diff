@@ -151,13 +151,18 @@ h1 {
 .toc-toggle-btn:hover strong {
     color: #1a73e8;
 }
-.toc-toggle-btn:hover .toc-main-arrow {
-    color: #1a73e8;
+.toc-toggle-btn:hover .toc-chevron {
+    stroke: #1a73e8;
 }
-.toc-main-arrow {
-    font-size: 13px;
-    color: #5f6368;
-    margin-left: 2px;
+.toc-chevron {
+    transition: transform 0.25s ease, stroke 0.15s ease;
+    vertical-align: middle;
+    margin-left: 4px;
+    flex-shrink: 0;
+    transform: rotate(180deg);
+}
+.toc-container.collapsed .toc-chevron {
+    transform: rotate(0deg);
 }
 .toc-header-bar {
     display: flex;
