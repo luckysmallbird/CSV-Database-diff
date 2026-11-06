@@ -16,3 +16,6 @@ old_db/*
 !old_db/.gitkeep
 new_db/*
 !new_db/.gitkeep
+
+# Local Documentation
+開發用.md

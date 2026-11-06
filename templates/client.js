@@ -131,22 +131,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Global Select All / Clear All
-    document.getElementById('btn-select-all-diffs').addEventListener('click', () => {
-        document.querySelectorAll('.row-checkbox').forEach(cb => {
-            const tr = cb.closest('tr');
-            if (tr.style.display !== 'none') {
-                cb.checked = true;
-            }
+    const btnSelectAllDiffs = document.getElementById('btn-select-all-diffs');
+    if (btnSelectAllDiffs) {
+        btnSelectAllDiffs.addEventListener('click', () => {
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                const tr = cb.closest('tr');
+                if (tr.style.display !== 'none') {
+                    cb.checked = true;
+                }
+            });
+            document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = true);
+            updateSelectedCount();
         });
-        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = true);
-        updateSelectedCount();
-    });
+    }
 
-    document.getElementById('btn-clear-all-diffs').addEventListener('click', () => {
-        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = false);
-        updateSelectedCount();
-    });
+    const btnClearAllDiffs = document.getElementById('btn-clear-all-diffs');
+    if (btnClearAllDiffs) {
+        btnClearAllDiffs.addEventListener('click', () => {
+            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.header-checkbox').forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        });
+    }
 
     // Toggle: Show only checked rows
     const btnToggleOnlyChecked = document.getElementById('btn-toggle-only-checked');
@@ -176,6 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Per-table search and filtering
+    const isSnapshot = !document.getElementById('sql-bar');
+
     document.querySelectorAll('.table-card').forEach(card => {
         const searchInput = card.querySelector('.table-search-input');
         const clearBtn = card.querySelector('.search-clear-btn');
@@ -205,6 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (countLabel) {
                 if (kw || isFilterOnlyChecked) {
                     countLabel.textContent = `篩選: ${visibleCount} / ${totalDiffs} 筆`;
+                } else if (isSnapshot) {
+                    const checkedCount = card.querySelectorAll('.mark-checked').length;
+                    const uncheckedCount = card.querySelectorAll('.mark-unchecked').length;
+                    if (checkedCount > 0) {
+                        countLabel.textContent = uncheckedCount > 0 ? `預計同步 ${checkedCount} 筆 (未選 ${uncheckedCount} 筆)` : `預計同步 ${checkedCount} 筆`;
+                    } else {
+                        countLabel.textContent = '未選取變更';
+                    }
                 } else {
                     countLabel.textContent = `差異共 ${totalDiffs} 筆`;
                 }
@@ -368,19 +384,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('sql-modal');
     const sqlCodeBlock = document.getElementById('sql-code-block');
 
-    document.getElementById('btn-preview-sql').addEventListener('click', () => {
-        const sql = generateSql();
-        sqlCodeBlock.textContent = sql;
-        modal.style.display = 'flex';
-    });
+    const btnPreviewSql = document.getElementById('btn-preview-sql');
+    if (btnPreviewSql && sqlCodeBlock && modal) {
+        btnPreviewSql.addEventListener('click', () => {
+            const sql = generateSql();
+            sqlCodeBlock.textContent = sql;
+            modal.style.display = 'flex';
+        });
+    }
 
-    document.getElementById('modal-close').addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
+    const modalClose = document.getElementById('modal-close');
+    if (modalClose && modal) {
+        modalClose.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
 
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
-    });
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+    }
 
     // Copy SQL
     const copySqlToClipboard = () => {
@@ -393,8 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    document.getElementById('btn-copy-sql').addEventListener('click', copySqlToClipboard);
-    document.getElementById('modal-copy-btn').addEventListener('click', copySqlToClipboard);
+    const btnCopySql = document.getElementById('btn-copy-sql');
+    if (btnCopySql) btnCopySql.addEventListener('click', copySqlToClipboard);
+
+    const modalCopyBtn = document.getElementById('modal-copy-btn');
+    if (modalCopyBtn) modalCopyBtn.addEventListener('click', copySqlToClipboard);
 
     // Format current timestamp as YYYYMMDD_HHmmss
     const getFormattedTime = () => {
@@ -426,14 +453,40 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(`已開始下載 SQL 檔案：${exportFileName}`);
     };
 
-    document.getElementById('btn-download-sql').addEventListener('click', downloadSqlFile);
-    document.getElementById('modal-download-btn').addEventListener('click', downloadSqlFile);
+    const btnDownloadSql = document.getElementById('btn-download-sql');
+    if (btnDownloadSql) btnDownloadSql.addEventListener('click', downloadSqlFile);
+
+    const modalDownloadBtn = document.getElementById('modal-download-btn');
+    if (modalDownloadBtn) modalDownloadBtn.addEventListener('click', downloadSqlFile);
 
     // Export Checked Snapshot HTML
     const btnExportSnapshot = document.getElementById('btn-export-snapshot');
     if (btnExportSnapshot) {
         btnExportSnapshot.addEventListener('click', () => {
-            // 1. Synchronize the current checkbox 'checked' state into DOM attributes
+            // 1. Calculate global stats on the live document before cloning
+            let totalCheckedAdded = 0;
+            let totalCheckedModified = 0;
+            let totalCheckedRemoved = 0;
+            let totalCheckedCount = 0;
+            let totalRawDiffsCount = 0;
+
+            document.querySelectorAll('.table-card:not(.table-card-identical)').forEach(card => {
+                const diffRows = card.querySelectorAll('.diff-table tbody tr');
+                totalRawDiffsCount += diffRows.length;
+                diffRows.forEach(tr => {
+                    const cb = tr.querySelector('.row-checkbox');
+                    if (cb && cb.checked) {
+                        totalCheckedCount++;
+                        const type = tr.getAttribute('data-diff-type');
+                        if (type === 'added') totalCheckedAdded++;
+                        else if (type === 'modified') totalCheckedModified++;
+                        else if (type === 'removed') totalCheckedRemoved++;
+                    }
+                });
+            });
+            const totalUncheckedCount = totalRawDiffsCount - totalCheckedCount;
+
+            // 2. Synchronize the current checkbox 'checked' state into DOM attributes
             document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                 if (cb.checked) {
                     cb.setAttribute('checked', 'checked');
@@ -442,128 +495,201 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 2. Clone the current document element
+            // 3. Clone the current document element
             const clone = document.documentElement.cloneNode(true);
 
-            // 3. Clean up editing toolbars and floating action bar for pure read-only view
-            // Remove single-table selection toolbars
+            // 4. Remove Subtitle
+            const subtitle = clone.querySelector('.subtitle');
+            if (subtitle) subtitle.remove();
+
+            // 5. Remove Identical Sections & Identical Cards completely to remove clutter & reduce file size
+            clone.querySelectorAll('.table-card-identical').forEach(el => el.remove());
+            clone.querySelectorAll('.identical-section').forEach(el => el.remove());
+            const btnIdenticalToc = clone.querySelector('#btn-toggle-identical-toc');
+            if (btnIdenticalToc) btnIdenticalToc.remove();
+            const containerIdenticalToc = clone.querySelector('#toc-identical-links-container');
+            if (containerIdenticalToc) containerIdenticalToc.remove();
+
+            // 6. Clean up editing toolbars and floating action bar for pure read-only view
             clone.querySelectorAll('.card-toolbar').forEach(el => el.remove());
-            // Remove floating SQL bar and modal overlay
             clone.querySelectorAll('.sql-bar, .modal-overlay').forEach(el => el.remove());
-            // Remove selection buttons from TOC, keep view controls
             ['btn-toggle-only-checked', 'btn-select-all-diffs', 'btn-clear-all-diffs'].forEach(id => {
                 const btn = clone.querySelector('#' + id);
                 if (btn) btn.remove();
             });
 
-            // 4. Make all checkboxes read-only (disabled) in snapshot, retaining clean appearance
-            clone.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                cb.setAttribute('disabled', 'disabled');
-                cb.style.pointerEvents = 'none';
-                cb.style.cursor = 'default';
+            // 7. Process Cards & Table Headers/Bodies
+            const diffCards = Array.from(clone.querySelectorAll('.table-card'));
+            let tablesWithCheckedCount = 0;
+
+            diffCards.forEach(card => {
+                const diffTable = card.querySelector('.diff-table');
+                let cardCheckedAdded = 0;
+                let cardCheckedModified = 0;
+                let cardCheckedRemoved = 0;
+                let cardCheckedTotal = 0;
+                let uncheckedRowCount = 0;
+
+                if (diffTable) {
+                    const thead = diffTable.querySelector('thead');
+                    const tbody = diffTable.querySelector('tbody');
+
+                    if (tbody) {
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        const checkedRows = [];
+                        const uncheckedRows = [];
+
+                        rows.forEach(tr => {
+                            const cb = tr.querySelector('.row-checkbox');
+                            const isChecked = cb && cb.hasAttribute('checked');
+                            const type = tr.getAttribute('data-diff-type');
+
+                            if (isChecked) {
+                                checkedRows.push(tr);
+                                cardCheckedTotal++;
+                                if (type === 'added') cardCheckedAdded++;
+                                else if (type === 'modified') cardCheckedModified++;
+                                else if (type === 'removed') cardCheckedRemoved++;
+                            } else {
+                                uncheckedRows.push(tr);
+                            }
+                        });
+
+                        uncheckedRowCount = uncheckedRows.length;
+
+                        // Replace thead checkbox with "狀態"
+                        if (thead) {
+                            const thCb = thead.querySelector('th.th-checkbox');
+                            if (thCb) {
+                                thCb.innerHTML = '狀態';
+                                thCb.style.textAlign = 'center';
+                                thCb.style.cursor = 'default';
+                            }
+                        }
+
+                        // Replace row checkbox in checked rows with green checkmark ✓
+                        checkedRows.forEach(tr => {
+                            const tdCb = tr.querySelector('td.th-checkbox');
+                            if (tdCb) {
+                                tdCb.innerHTML = '<span class="mark-checked">✓</span>';
+                            }
+                        });
+
+                        // Unchecked rows folded into section
+                        if (uncheckedRows.length > 0) {
+                            const uncheckedSection = document.createElement('div');
+                            uncheckedSection.className = 'unchecked-section';
+
+                            const toggle = document.createElement('div');
+                            toggle.className = 'unchecked-toggle';
+                            toggle.setAttribute('onclick', 'toggleUnchecked(this)');
+                            toggle.innerHTML = `<span class="arrow-icon">▶</span><span>未勾選項目（${uncheckedRows.length} 筆）</span>`;
+
+                            const content = document.createElement('div');
+                            content.className = 'unchecked-content';
+                            content.style.display = 'none';
+
+                            const newTable = document.createElement('table');
+                            newTable.className = 'diff-table';
+                            if (thead) newTable.appendChild(thead.cloneNode(true));
+
+                            const newTbody = document.createElement('tbody');
+                            uncheckedRows.forEach(tr => {
+                                tr.remove();
+                                const tdCb = tr.querySelector('td.th-checkbox');
+                                if (tdCb) {
+                                    tdCb.innerHTML = '<span class="mark-unchecked">-</span>';
+                                }
+                                newTbody.appendChild(tr);
+                            });
+                            newTable.appendChild(newTbody);
+                            content.appendChild(newTable);
+
+                            uncheckedSection.appendChild(toggle);
+                            uncheckedSection.appendChild(content);
+
+                            const body = card.querySelector('.table-card-body');
+                            if (body) {
+                                body.appendChild(uncheckedSection);
+                            }
+                        }
+
+                        // If no rows were checked in this card
+                        if (cardCheckedTotal === 0) {
+                            const wrapper = diffTable.closest('.table-responsive');
+                            if (wrapper) {
+                                wrapper.remove();
+                            } else {
+                                diffTable.remove();
+                            }
+                            card.classList.add('collapsed');
+                        }
+                    }
+                }
+
+                if (cardCheckedTotal > 0) {
+                    tablesWithCheckedCount++;
+                }
+
+                // Update Card Header Badges
+                const badgesContainer = card.querySelector('.table-badges');
+                if (badgesContainer) {
+                    if (cardCheckedTotal > 0) {
+                        let badgeHtml = '';
+                        if (cardCheckedAdded > 0) badgeHtml += `<span class="badge-added">+ 預計新增 ${cardCheckedAdded}</span> `;
+                        if (cardCheckedRemoved > 0) badgeHtml += `<span class="badge-removed">- 預計刪除 ${cardCheckedRemoved}</span> `;
+                        if (cardCheckedModified > 0) badgeHtml += `<span class="badge-modified">~ 預計修改 ${cardCheckedModified}</span> `;
+                        badgesContainer.innerHTML = badgeHtml;
+                    } else {
+                        badgesContainer.innerHTML = '<span class="badge-identical-tag" style="color: #5f6368; background: #f1f3f4; border: 1px solid #dadce0;">本次略過（未選取）</span>';
+                    }
+                }
+
+                // Update Card Header Count Label (keep search box untouched)
+                const countLabel = card.querySelector('.table-count-label');
+                if (countLabel) {
+                    if (cardCheckedTotal > 0) {
+                        countLabel.textContent = uncheckedRowCount > 0 ? `預計同步 ${cardCheckedTotal} 筆 (未選 ${uncheckedRowCount} 筆)` : `預計同步 ${cardCheckedTotal} 筆`;
+                    } else {
+                        countLabel.textContent = '未選取變更';
+                    }
+                }
+
+                // Store checked count attribute for sorting
+                card.setAttribute('data-checked-count', String(cardCheckedTotal));
             });
 
-            // 5. Add audit banner with pure black text
-            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            // 8. Update Top Summary
+            const oldTarget = document.body.getAttribute('data-old-target') || 'old';
+            const newSource = document.body.getAttribute('data-new-source') || 'new';
             const summaryDiv = clone.querySelector('.summary');
             if (summaryDiv) {
-                const banner = document.createElement('p');
-                banner.style.cssText = 'color: #202124; margin-top: 10px; font-size: 13px; font-weight: normal; border-top: 1px solid #edf0f2; padding-top: 8px;';
-                banner.innerHTML = `<strong>勾選紀錄存檔版本</strong> ｜ 已選取 <strong>${checkedCount}</strong> 筆差異列 ｜ 存檔時間：${new Date().toLocaleString()}`;
-                summaryDiv.appendChild(banner);
+                summaryDiv.innerHTML = `
+        <p>
+            <strong>舊版資料夾 (Old Target):</strong> ${oldTarget} &nbsp;|&nbsp; 
+            <strong>新版資料夾 (New Source):</strong> ${newSource} &nbsp;|&nbsp; 
+            <strong>存檔時間:</strong> ${new Date().toLocaleString()}
+        </p>
+        <p>
+            <span><strong>預計同步表格數:</strong> ${tablesWithCheckedCount} / ${diffCards.length}</span>
+            <span class="badge-added">+ 預計新增 ${totalCheckedAdded}</span>
+            <span class="badge-removed">- 預計刪除 ${totalCheckedRemoved}</span>
+            <span class="badge-modified">~ 預計修改 ${totalCheckedModified}</span>
+            <span style="color: #5f6368; font-size: 12px; margin-left: 8px;">（原始比對總差異共 ${totalRawDiffsCount} 筆，未選取略過 ${totalUncheckedCount} 筆）</span>
+        </p>`;
             }
 
-            // 6. Fold unchecked rows in diff tables
-            let totalUncheckedCount = 0;
-            clone.querySelectorAll('.table-card').forEach(card => {
-                const diffTable = card.querySelector('.diff-table');
-                if (!diffTable) return;
+            // 9. Sort Cards in snapshot:
+            // Group 1: Tables with checked rows > 0 (alphabetical by filename)
+            // Group 2: Tables with 0 checked rows (alphabetical by filename)
+            diffCards.sort((a, b) => {
+                const aChecked = parseInt(a.getAttribute('data-checked-count') || '0', 10);
+                const bChecked = parseInt(b.getAttribute('data-checked-count') || '0', 10);
+                const aHas = aChecked > 0 ? 1 : 0;
+                const bHas = bChecked > 0 ? 1 : 0;
 
-                const thead = diffTable.querySelector('thead');
-                const tbody = diffTable.querySelector('tbody');
-                if (!tbody) return;
-
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const uncheckedRows = rows.filter(tr => {
-                    const cb = tr.querySelector('.row-checkbox');
-                    return cb && !cb.hasAttribute('checked');
-                });
-                const checkedRows = rows.filter(tr => {
-                    const cb = tr.querySelector('.row-checkbox');
-                    return cb && cb.hasAttribute('checked');
-                });
-
-                totalUncheckedCount += uncheckedRows.length;
-
-                if (uncheckedRows.length > 0) {
-                    const uncheckedSection = document.createElement('div');
-                    uncheckedSection.className = 'unchecked-section';
-
-                    const toggle = document.createElement('div');
-                    toggle.className = 'unchecked-toggle';
-                    toggle.setAttribute('onclick', 'toggleUnchecked(this)');
-                    toggle.innerHTML = `<span class="arrow-icon">▶</span><span>未勾選項目（${uncheckedRows.length} 筆）</span>`;
-
-                    const content = document.createElement('div');
-                    content.className = 'unchecked-content';
-                    content.style.display = 'none';
-
-                    const newTable = document.createElement('table');
-                    newTable.className = 'diff-table';
-                    if (thead) newTable.appendChild(thead.cloneNode(true));
-
-                    const newTbody = document.createElement('tbody');
-                    uncheckedRows.forEach(tr => {
-                        tr.remove();
-                        newTbody.appendChild(tr);
-                    });
-                    newTable.appendChild(newTbody);
-                    content.appendChild(newTable);
-
-                    uncheckedSection.appendChild(toggle);
-                    uncheckedSection.appendChild(content);
-
-                    const body = card.querySelector('.table-card-body');
-                    const identicalSection = card.querySelector('.identical-section');
-                    if (identicalSection) {
-                        body.insertBefore(uncheckedSection, identicalSection);
-                    } else if (body) {
-                        body.appendChild(uncheckedSection);
-                    }
-
-                    if (checkedRows.length === 0) {
-                        // Remove diff table completely if no rows were checked, reducing vertical clutter
-                        const wrapper = diffTable.closest('.table-responsive');
-                        if (wrapper) {
-                            wrapper.remove();
-                        } else {
-                            diffTable.remove();
-                        }
-                        // Default to collapsed for clean review
-                        card.classList.add('collapsed');
-                    }
-                }
-            });
-
-            // 7. Sort cards in snapshot:
-            // Group 1: Tables with checked rows (alphabetical by filename)
-            // Group 2: Tables with diffs but 0 checked rows (alphabetical by filename)
-            // Group 3: Tables with 0 diffs / identical (alphabetical by filename)
-            const cards = Array.from(clone.querySelectorAll('.table-card'));
-            cards.sort((a, b) => {
-                const aChecked = a.querySelectorAll('.row-checkbox[checked]').length;
-                const bChecked = b.querySelectorAll('.row-checkbox[checked]').length;
-                const aHasChecked = aChecked > 0 ? 1 : 0;
-                const bHasChecked = bChecked > 0 ? 1 : 0;
-
-                if (aHasChecked !== bHasChecked) {
-                    return bHasChecked - aHasChecked;
-                }
-
-                const aIdentical = a.classList.contains('table-card-identical') ? 1 : 0;
-                const bIdentical = b.classList.contains('table-card-identical') ? 1 : 0;
-                if (aIdentical !== bIdentical) {
-                    return aIdentical - bIdentical;
+                if (aHas !== bHas) {
+                    return bHas - aHas;
                 }
 
                 const aFile = a.getAttribute('data-filename') || '';
@@ -574,18 +700,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const firstCard = clone.querySelector('.table-card');
             if (firstCard && firstCard.parentNode) {
                 const parent = firstCard.parentNode;
-                cards.forEach(card => parent.appendChild(card));
+                diffCards.forEach(card => parent.appendChild(card));
             }
 
-            // 8. Re-order and update TOC links in snapshot based on the new card order
+            // 10. Update TOC in Snapshot
+            const tocTitle = clone.querySelector('.toc-title');
+            if (tocTitle) {
+                tocTitle.innerHTML = `<strong>快速跳轉</strong> <span class="toc-summary-text">（預計同步 ${tablesWithCheckedCount} 表，共 ${totalCheckedCount} 筆）</span>`;
+            }
+
             const tocChangedLinksContainer = clone.querySelector('.toc-changed-links');
             if (tocChangedLinksContainer) {
                 tocChangedLinksContainer.innerHTML = '';
-                const diffCards = cards.filter(c => !c.classList.contains('table-card-identical'));
                 diffCards.forEach(card => {
                     const filename = card.getAttribute('data-filename');
-                    const checkedInCard = card.querySelectorAll('.row-checkbox[checked]').length;
-                    const uncheckedInCard = card.querySelectorAll('.unchecked-content .row-checkbox').length;
+                    const checkedInCard = parseInt(card.getAttribute('data-checked-count') || '0', 10);
+                    const uncheckedInCard = card.querySelectorAll('.unchecked-content tr').length;
 
                     const a = document.createElement('a');
                     a.className = 'toc-link';
@@ -597,16 +727,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         a.className += ' toc-link-unchecked';
                         a.style.background = '#f1f3f4';
                         a.style.color = '#5f6368';
-                        a.innerHTML = `${filename} <span class="toc-badge-count">(未選 ${uncheckedInCard} 筆)</span>`;
+                        a.innerHTML = `${filename} <span class="toc-badge-count">(略過 / 0 筆)</span>`;
                     }
                     tocChangedLinksContainer.appendChild(a);
                 });
             }
 
-            // 9. Add "一鍵展開未勾選項目" button to TOC in snapshot
+            // 11. Add "一鍵展開未勾選項目" button to TOC if there are unchecked rows
             if (totalUncheckedCount > 0) {
                 const tocActions = clone.querySelector('.toc-actions');
-                if (tocActions) {
+                if (tocActions && !clone.querySelector('#btn-toggle-all-unchecked')) {
                     const btnToggleAllUnchecked = document.createElement('button');
                     btnToggleAllUnchecked.className = 'btn-action';
                     btnToggleAllUnchecked.id = 'btn-toggle-all-unchecked';
@@ -615,13 +745,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 10. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
-            const oldTarget = document.body.getAttribute('data-old-target') || 'old';
-            const newSource = document.body.getAttribute('data-new-source') || 'new';
+            // 12. Construct filename: 資料庫比對_舊版xxx_新版xxx_時間.html
             const timeStr = getFormattedTime();
             const exportFileName = `資料庫比對_舊版${oldTarget}_新版${newSource}_${timeStr}.html`;
 
-            // 9. Trigger download
+            // 13. Trigger download
             const fullHtml = '<!DOCTYPE html>\n<html lang="zh-Hant">\n' + clone.innerHTML + '\n</html>';
             const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
             const url = URL.createObjectURL(blob);

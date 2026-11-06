@@ -419,6 +419,22 @@ th:hover {
     width: 32px;
     text-align: center;
 }
+.mark-checked {
+    color: #137333;
+    font-weight: bold;
+    font-size: 15px;
+    display: inline-block;
+    text-align: center;
+    width: 100%;
+}
+.mark-unchecked {
+    color: #80868b;
+    font-weight: bold;
+    font-size: 15px;
+    display: inline-block;
+    text-align: center;
+    width: 100%;
+}
 
 .row-added {
     background-color: #e6f4ea;
